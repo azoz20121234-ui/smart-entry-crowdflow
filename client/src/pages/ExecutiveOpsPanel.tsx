@@ -6,13 +6,14 @@
  */
 
 import { useState, useEffect } from 'react';
+import { useLocation } from 'wouter';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CrowdPredictionPanel } from '@/components/CrowdPredictionPanel';
-import { TrendingUp, TrendingDown, AlertTriangle, DollarSign, Users, Zap, BarChart3, Activity } from 'lucide-react';
+import { TrendingUp, TrendingDown, AlertTriangle, DollarSign, Users, Zap, BarChart3, Activity, ArrowRight } from 'lucide-react';
 
 interface KPI {
   label: string;
@@ -23,6 +24,7 @@ interface KPI {
 }
 
 export default function ExecutiveOpsPanel() {
+  const [, setLocation] = useLocation();
   const [kpis, setKpis] = useState<KPI[]>([
     { label: 'إجمالي الحاضرين', value: 2100, unit: 'شخص', change: 5, trend: 'up' },
     { label: 'معدل الدخول', value: 180, unit: 'شخص/دقيقة', change: -3, trend: 'down' },
@@ -115,9 +117,19 @@ export default function ExecutiveOpsPanel() {
       <div className="bg-gradient-to-r from-blue-900 to-blue-800 text-white shadow-lg sticky top-0 z-20">
         <div className="container mx-auto px-4 py-8">
           <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-4xl font-bold">لوحة التحكم التنفيذية</h1>
-              <p className="text-blue-100 mt-2">نظام إدارة الحشود الذكي - Smart Entry & CrowdFlow</p>
+            <div className="flex items-center gap-4">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-white hover:bg-blue-700"
+                onClick={() => setLocation('/')}
+              >
+                <ArrowRight className="w-6 h-6" />
+              </Button>
+              <div>
+                <h1 className="text-4xl font-bold">لوحة التحكم التنفيذية</h1>
+                <p className="text-blue-100 mt-2">نظام إدارة الحشود الذكي - Smart Entry & CrowdFlow</p>
+              </div>
             </div>
             <div className="text-right">
               <p className="text-sm text-blue-100">آخر تحديث</p>

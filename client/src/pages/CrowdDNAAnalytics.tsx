@@ -37,7 +37,7 @@ export default function CrowdDNAAnalytics() {
               variant="ghost"
               size="icon"
               className="text-white hover:bg-purple-700"
-              onClick={() => setLocation('/executive')}
+              onClick={() => setLocation('/')}
             >
               <ArrowRight className="w-6 h-6" />
             </Button>

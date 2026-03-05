@@ -6,7 +6,8 @@
  */
 
 import { useState, useEffect } from 'react';
-import { AlertCircle, TrendingUp, Users, Zap, Clock, Settings, Bell, BarChart3, Activity } from 'lucide-react';
+import { useLocation } from 'wouter';
+import { AlertCircle, TrendingUp, Users, Zap, Clock, Settings, Bell, BarChart3, Activity, ArrowRight } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -35,6 +36,7 @@ interface SystemAlert {
 }
 
 export default function OperatorDashboard() {
+  const [, setLocation] = useLocation();
   const [gates, setGates] = useState<GateStatus[]>([
     {
       id: 1,
@@ -205,9 +207,19 @@ export default function OperatorDashboard() {
       <div className="bg-white border-b border-slate-200 shadow-sm sticky top-0 z-20">
         <div className="container mx-auto px-4 py-6">
           <div className="flex justify-between items-center mb-4">
-            <div>
-              <h1 className="text-4xl font-bold text-slate-900">لوحة تحكم المنظمين</h1>
-              <p className="text-slate-600 mt-2">إدارة الطوابير الافتراضية والبوابات</p>
+            <div className="flex items-center gap-3">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-slate-900 hover:bg-slate-100"
+                onClick={() => setLocation('/')}
+              >
+                <ArrowRight className="w-6 h-6" />
+              </Button>
+              <div>
+                <h1 className="text-4xl font-bold text-slate-900">لوحة تحكم المنظمين</h1>
+                <p className="text-slate-600 mt-2">إدارة الطوابير الافتراضية والبوابات</p>
+              </div>
             </div>
             <div className="flex gap-3 items-center">
               <NotificationCenter fanId="operator-001" />

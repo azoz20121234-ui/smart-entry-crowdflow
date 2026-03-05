@@ -23,7 +23,7 @@ export default function StrategicDashboard() {
               variant="ghost"
               size="icon"
               className="text-white hover:bg-blue-800"
-              onClick={() => setLocation('/executive')}
+              onClick={() => setLocation('/')}
             >
               <ArrowRight className="w-6 h-6" />
             </Button>
