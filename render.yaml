@@ -2,7 +2,7 @@ services:
   - type: web
     name: smart-entry-crowdflow
     runtime: node
-    plan: free
+    plan: starter
     autoDeploy: true
     buildCommand: |
       corepack enable
@@ -10,8 +10,14 @@ services:
       pnpm build
     startCommand: pnpm start
     healthCheckPath: /api/health
+    disk:
+      name: app-data
+      mountPath: /var/data
+      sizeGB: 1
     envVars:
       - key: NODE_VERSION
         value: 20
       - key: NODE_ENV
         value: production
+      - key: DATA_DIR
+        value: /var/data
