@@ -9,8 +9,11 @@ import {
   MapPinned,
   Settings2,
   ShieldCheck,
+  Target,
   Users,
 } from "lucide-react";
+
+export type PlatformRouteTone = "blue" | "emerald" | "amber" | "rose" | "indigo" | "slate";
 
 export interface PlatformRoute {
   path: string;
@@ -18,7 +21,9 @@ export interface PlatformRoute {
   description: string;
   category: "الانطلاق" | "التشغيل" | "التحليلات" | "الإدارة" | "تجربة المشجع";
   icon: LucideIcon;
+  tone: PlatformRouteTone;
   featured?: boolean;
+  showInNavigation?: boolean;
 }
 
 export const platformRoutes: PlatformRoute[] = [
@@ -28,7 +33,9 @@ export const platformRoutes: PlatformRoute[] = [
     description: "نظرة عامة على المنصة ومسارات الوصول السريع.",
     category: "الانطلاق",
     icon: Home,
+    tone: "blue",
     featured: true,
+    showInNavigation: true,
   },
   {
     path: "/operator",
@@ -36,7 +43,9 @@ export const platformRoutes: PlatformRoute[] = [
     description: "تشغيل البوابات ومتابعة الطوابير والتنبيهات الحرجة.",
     category: "التشغيل",
     icon: ShieldCheck,
+    tone: "emerald",
     featured: true,
+    showInNavigation: true,
   },
   {
     path: "/executive",
@@ -44,7 +53,9 @@ export const platformRoutes: PlatformRoute[] = [
     description: "مؤشرات الأداء والتنبؤات والرؤية الاستراتيجية.",
     category: "التشغيل",
     icon: Crown,
+    tone: "amber",
     featured: true,
+    showInNavigation: true,
   },
   {
     path: "/admin",
@@ -52,7 +63,9 @@ export const platformRoutes: PlatformRoute[] = [
     description: "إدارة العمليات اليومية وتوزيع الموارد.",
     category: "الإدارة",
     icon: Users,
+    tone: "slate",
     featured: true,
+    showInNavigation: true,
   },
   {
     path: "/fan",
@@ -60,7 +73,9 @@ export const platformRoutes: PlatformRoute[] = [
     description: "تجربة المشجع والتذكرة الذكية وتتبع الدخول.",
     category: "تجربة المشجع",
     icon: Compass,
+    tone: "indigo",
     featured: true,
+    showInNavigation: true,
   },
   {
     path: "/fan-navigation",
@@ -68,6 +83,8 @@ export const platformRoutes: PlatformRoute[] = [
     description: "أفضل المسارات داخل الملعب وتحديثات الحركة.",
     category: "تجربة المشجع",
     icon: MapPinned,
+    tone: "indigo",
+    showInNavigation: false,
   },
   {
     path: "/analytics",
@@ -75,7 +92,9 @@ export const platformRoutes: PlatformRoute[] = [
     description: "تحليلات الأداء اللحظية والاتجاهات الزمنية.",
     category: "التحليلات",
     icon: BarChart3,
+    tone: "blue",
     featured: true,
+    showInNavigation: false,
   },
   {
     path: "/crowd-dna",
@@ -83,13 +102,17 @@ export const platformRoutes: PlatformRoute[] = [
     description: "تحليل أنماط الحضور والسلوك الجماهيري.",
     category: "التحليلات",
     icon: Activity,
+    tone: "rose",
+    showInNavigation: false,
   },
   {
     path: "/strategic",
     title: "التحكم الاستراتيجي",
     description: "سيناريوهات القرار وتحسين توزيع التدفقات.",
     category: "التحليلات",
-    icon: BarChart3,
+    icon: Target,
+    tone: "amber",
+    showInNavigation: false,
   },
   {
     path: "/innovative",
@@ -97,6 +120,8 @@ export const platformRoutes: PlatformRoute[] = [
     description: "القدرات المتقدمة والمزايا المستقبلية.",
     category: "الانطلاق",
     icon: Lightbulb,
+    tone: "amber",
+    showInNavigation: false,
   },
   {
     path: "/system-admin",
@@ -104,10 +129,58 @@ export const platformRoutes: PlatformRoute[] = [
     description: "ضبط الصلاحيات، التكاملات، ومراقبة الصحة التشغيلية.",
     category: "الإدارة",
     icon: Settings2,
+    tone: "slate",
     featured: true,
+    showInNavigation: false,
   },
 ];
 
 export function getRouteByPath(pathname: string): PlatformRoute | undefined {
   return platformRoutes.find(route => route.path === pathname);
+}
+
+export function getRouteToneClasses(tone: PlatformRouteTone): {
+  iconWrapper: string;
+  iconColor: string;
+  badge: string;
+} {
+  switch (tone) {
+    case "emerald":
+      return {
+        iconWrapper: "bg-emerald-50 border-emerald-100",
+        iconColor: "text-emerald-700",
+        badge: "bg-emerald-100 text-emerald-700",
+      };
+    case "amber":
+      return {
+        iconWrapper: "bg-amber-50 border-amber-100",
+        iconColor: "text-amber-700",
+        badge: "bg-amber-100 text-amber-800",
+      };
+    case "rose":
+      return {
+        iconWrapper: "bg-rose-50 border-rose-100",
+        iconColor: "text-rose-700",
+        badge: "bg-rose-100 text-rose-700",
+      };
+    case "indigo":
+      return {
+        iconWrapper: "bg-indigo-50 border-indigo-100",
+        iconColor: "text-indigo-700",
+        badge: "bg-indigo-100 text-indigo-700",
+      };
+    case "slate":
+      return {
+        iconWrapper: "bg-slate-100 border-slate-200",
+        iconColor: "text-slate-700",
+        badge: "bg-slate-100 text-slate-700",
+      };
+    case "blue":
+    default:
+      return {
+        iconWrapper: "bg-blue-50 border-blue-100",
+        iconColor: "text-blue-700",
+        badge: "bg-blue-100 text-blue-700",
+      };
+  }
 }

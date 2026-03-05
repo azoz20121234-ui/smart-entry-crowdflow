@@ -12,7 +12,8 @@ import {
   CommandShortcut,
 } from "@/components/ui/command";
 import { Button } from "@/components/ui/button";
-import { platformRoutes, getRouteByPath } from "@/lib/platformRoutes";
+import { platformRoutes, getRouteByPath, getRouteToneClasses } from "@/lib/platformRoutes";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 export default function PlatformQuickAccess() {
@@ -20,6 +21,19 @@ export default function PlatformQuickAccess() {
   const [pathname, setLocation] = useLocation();
 
   const currentRoute = useMemo(() => getRouteByPath(pathname), [pathname]);
+  const routeGroups = useMemo(() => {
+    const categoryOrder = ["الانطلاق", "التشغيل", "التحليلات", "تجربة المشجع", "الإدارة"] as const;
+    return categoryOrder
+      .map(category => ({
+        category,
+        routes: platformRoutes.filter(
+          route => route.category === category && route.showInNavigation !== false,
+        ),
+      }))
+      .filter(group => group.routes.length > 0);
+  }, []);
+  const currentIconStyles = currentRoute ? getRouteToneClasses(currentRoute.tone) : getRouteToneClasses("blue");
+  const CurrentIcon = currentRoute?.icon ?? Compass;
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -58,7 +72,9 @@ export default function PlatformQuickAccess() {
         className="fixed bottom-4 left-4 z-50 h-11 rounded-full bg-slate-900 px-4 text-white shadow-lg hover:bg-slate-800 md:bottom-6 md:left-6"
         onClick={() => setOpen(true)}
       >
-        <Compass className="mr-2 h-4 w-4" />
+        <span className={cn("mr-2 inline-flex h-6 w-6 items-center justify-center rounded-md border", currentIconStyles.iconWrapper)}>
+          <CurrentIcon className={cn("h-3.5 w-3.5", currentIconStyles.iconColor)} />
+        </span>
         <span className="hidden md:inline">تنقل سريع</span>
         <span className="md:hidden">تنقل</span>
         <span className="mx-2 hidden h-4 w-px bg-white/30 md:inline" />
@@ -74,25 +90,32 @@ export default function PlatformQuickAccess() {
         <CommandInput placeholder="ابحث عن صفحة أو إجراء..." />
         <CommandList>
           <CommandEmpty>لا توجد نتائج مطابقة.</CommandEmpty>
-          <CommandGroup heading="الصفحات">
-            {platformRoutes.map(route => {
-              const Icon = route.icon;
-              return (
-                <CommandItem
-                  key={route.path}
-                  value={`${route.title} ${route.description} ${route.category}`}
-                  onSelect={() => navigateTo(route.path)}
-                >
-                  <Icon className="h-4 w-4" />
-                  <div className="flex min-w-0 flex-1 flex-col">
-                    <span className="truncate">{route.title}</span>
-                    <span className="truncate text-xs text-slate-500">{route.description}</span>
-                  </div>
-                  <CommandShortcut>{route.category}</CommandShortcut>
-                </CommandItem>
-              );
-            })}
-          </CommandGroup>
+          {routeGroups.map(group => (
+            <CommandGroup key={group.category} heading={group.category}>
+              {group.routes.map(route => {
+                const Icon = route.icon;
+                const tone = getRouteToneClasses(route.tone);
+                return (
+                  <CommandItem
+                    key={route.path}
+                    value={`${route.title} ${route.description} ${route.category}`}
+                    onSelect={() => navigateTo(route.path)}
+                  >
+                    <span className={cn("inline-flex h-7 w-7 items-center justify-center rounded-md border", tone.iconWrapper)}>
+                      <Icon className={cn("h-3.5 w-3.5", tone.iconColor)} />
+                    </span>
+                    <div className="flex min-w-0 flex-1 flex-col">
+                      <span className="truncate">{route.title}</span>
+                      <span className="truncate text-xs text-slate-500">{route.description}</span>
+                    </div>
+                    <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-semibold", tone.badge)}>
+                      {route.category}
+                    </span>
+                  </CommandItem>
+                );
+              })}
+            </CommandGroup>
+          ))}
           <CommandSeparator />
           <CommandGroup heading="إجراءات سريعة">
             <CommandItem onSelect={() => navigateTo("/")}>
@@ -128,4 +151,3 @@ export default function PlatformQuickAccess() {
     </>
   );
 }
-
