@@ -19,8 +19,13 @@ import type { ExecutiveKPI, ExecutivePrediction, ExecutiveSafetyMetric } from '@
 
 const STEP_INTERVAL_MS = 5000;
 
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
 export default function ExecutiveOpsPanel() {
   const [, setLocation] = useLocation();
+  const [eventMode, setEventMode] = useState<'match' | 'concert' | 'high-demand'>('match');
   const [kpis, setKpis] = useState<ExecutiveKPI[]>([
     { label: 'إجمالي الحاضرين', value: 2100, unit: 'شخص', change: 5, trend: 'up' },
     { label: 'معدل الدخول', value: 180, unit: 'شخص/دقيقة', change: -3, trend: 'down' },
@@ -130,6 +135,26 @@ export default function ExecutiveOpsPanel() {
 
   const peakTimeEstimate = new Date(Date.now() + 45 * 60000);
   const clearTimeEstimate = new Date(Date.now() + 120 * 60000);
+  const avgWait = Number(kpis.find(kpi => kpi.label.includes('الانتظار'))?.value ?? 8);
+  const operatingEfficiency = Number(kpis.find(kpi => kpi.label.includes('كفاءة'))?.value ?? 80);
+  const interventionCount = alerts.filter(alert => alert.includes('🔴') || alert.includes('⚠️')).length;
+  const experienceScore = Math.round(
+    clamp(100 - avgWait * 4 - interventionCount * 8 + operatingEfficiency * 0.25, 35, 98),
+  );
+  const experienceState =
+    experienceScore >= 80 ? 'ممتاز' : experienceScore >= 65 ? 'متوازن' : 'يحتاج تدخل';
+  const baselineWait = eventMode === 'high-demand' ? 16 : eventMode === 'concert' ? 12 : 14;
+  const baselineInterventions = eventMode === 'high-demand' ? 6 : eventMode === 'concert' ? 4 : 5;
+  const waitImprovement = Math.max(0, Math.round((1 - avgWait / baselineWait) * 100));
+  const interventionImprovement = Math.max(
+    0,
+    Math.round((1 - interventionCount / Math.max(1, baselineInterventions)) * 100),
+  );
+  const learningInsights = [
+    'في الأحداث ذات ضغط مرتفع، التوجيه المبكر قبل 20 دقيقة يقلل الذروة بشكل ملحوظ.',
+    'توحيد الرسائل بين التطبيق والشاشات يحسّن الالتزام بالمسارات البديلة.',
+    'فتح مسار بديل مؤقت عند ارتفاع المؤشر الأحمر يمنع انتقال الاختناق للممرات المجاورة.',
+  ];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
@@ -152,6 +177,18 @@ export default function ExecutiveOpsPanel() {
               </div>
             </div>
             <div className="text-right">
+              <div className="mb-2">
+                <label className="text-xs text-blue-100">نوع الحدث</label>
+                <select
+                  className="mr-2 rounded-md border border-blue-300 bg-blue-800 px-2 py-1 text-xs text-white"
+                  value={eventMode}
+                  onChange={event => setEventMode(event.target.value as 'match' | 'concert' | 'high-demand')}
+                >
+                  <option value="match">مباراة</option>
+                  <option value="concert">حفلة</option>
+                  <option value="high-demand">حدث عالي الطلب</option>
+                </select>
+              </div>
               <p
                 className={`mb-1 inline-flex rounded-full px-2 py-1 text-xs font-semibold ${
                   dataSource === 'server'
@@ -183,6 +220,73 @@ export default function ExecutiveOpsPanel() {
             ))}
           </div>
         )}
+
+        <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <Card className="lg:col-span-2 border-2 border-emerald-200 bg-gradient-to-r from-emerald-50 to-cyan-50 shadow-md">
+            <CardHeader>
+              <CardTitle>مؤشر جودة التجربة (Experience Score)</CardTitle>
+              <CardDescription>مؤشر موحّد لقراءة التجربة العامة بدون تفاصيل تشغيلية.</CardDescription>
+            </CardHeader>
+            <CardContent className="flex items-end justify-between">
+              <div>
+                <p className="text-5xl font-extrabold text-emerald-700">{experienceScore}</p>
+                <p className="text-sm font-semibold text-slate-700 mt-2">
+                  الحالة: {experienceState}
+                </p>
+              </div>
+              <div className="text-sm text-slate-700 space-y-1">
+                <p>متوسط الانتظار الحالي: {Math.round(avgWait)} دقائق</p>
+                <p>التدخلات النشطة: {interventionCount}</p>
+                <p>كفاءة التشغيل: {Math.round(operatingEfficiency)}%</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-md border border-blue-200">
+            <CardHeader>
+              <CardTitle className="text-lg">قرار الإدارة الآن</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm font-semibold text-slate-800">
+                {experienceScore >= 80
+                  ? 'لا حاجة لتدخل إضافي حالياً. استمر على الخطة الحالية.'
+                  : experienceScore >= 65
+                    ? 'يوصى بمتابعة دقيقة للممرات ذات الخطر المتوسط.'
+                    : 'يوصى بتدخل فوري وتفعيل خطة تقليل الضغط.'}
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+
+        <Card className="mb-8 shadow-md">
+          <CardHeader>
+            <CardTitle>مقارنة الأثر قبل/بعد التشغيل الذكي</CardTitle>
+            <CardDescription>قياس واضح للقيمة التشغيلية خلال نفس نوع الحدث.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <p className="text-xs text-slate-600">تحسن زمن الانتظار</p>
+                <p className="text-3xl font-bold text-emerald-700">+{waitImprovement}%</p>
+                <p className="text-xs text-slate-500 mt-1">
+                  قبل: {baselineWait} دقيقة - الآن: {Math.round(avgWait)} دقائق
+                </p>
+              </div>
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <p className="text-xs text-slate-600">خفض التدخلات الحرجة</p>
+                <p className="text-3xl font-bold text-blue-700">+{interventionImprovement}%</p>
+                <p className="text-xs text-slate-500 mt-1">
+                  قبل: {baselineInterventions} - الآن: {interventionCount}
+                </p>
+              </div>
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <p className="text-xs text-slate-600">جاهزية الحدث</p>
+                <p className="text-3xl font-bold text-indigo-700">{experienceState}</p>
+                <p className="text-xs text-slate-500 mt-1">مؤشر موحّد لاتخاذ قرار الإدارة.</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* KPI Dashboard */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -430,6 +534,24 @@ export default function ExecutiveOpsPanel() {
                   <p><span className="text-slate-600">التكلفة الإضافية:</span> <span className="font-bold text-green-600">0 ريال</span></p>
                 </div>
               </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-md border border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50">
+          <CardHeader>
+            <CardTitle>التعلّم من الأحداث السابقة</CardTitle>
+            <CardDescription>
+              توصيات تراكمية مبنية على نتائج التشغيل في فعاليات مشابهة.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {learningInsights.map((insight, index) => (
+                <div key={index} className="rounded-lg border border-amber-200 bg-white p-3">
+                  <p className="text-sm font-semibold text-slate-800">{insight}</p>
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>

@@ -10,6 +10,7 @@ import { useLocation } from 'wouter';
 import { AlertCircle, TrendingUp, Users, Zap, Clock, Settings, Bell, BarChart3, Activity, ArrowRight, Sparkles, Target, RefreshCcw, Shield } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { VirtualQueueAnalytics } from '@/components/VirtualQueueAnalytics';
@@ -37,6 +38,15 @@ interface RebalanceAction {
   people: number;
   urgency: 'high' | 'medium';
 }
+
+interface DecisionLogItem {
+  id: string;
+  timestamp: Date;
+  action: string;
+  impact: string;
+}
+
+type RiskLevel = 'low' | 'medium' | 'high';
 
 function queueStatusFromValue(queue: number): GateStatus['status'] {
   if (queue > 80) return 'critical';
@@ -78,6 +88,19 @@ function computeRebalancePlan(gates: GateStatus[]): RebalanceAction[] {
   });
 
   return plan.slice(0, 6);
+}
+
+function computeGateRiskIndex(gate: GateStatus): number {
+  const queueFactor = Math.min(100, (gate.currentQueue / 90) * 55);
+  const waitFactor = Math.min(100, (gate.averageWaitTime / 15) * 30);
+  const trendFactor = gate.trend === 'up' ? 15 : gate.trend === 'stable' ? 8 : 2;
+  return Math.round(Math.min(100, queueFactor + waitFactor + trendFactor));
+}
+
+function riskLevelFromIndex(index: number): RiskLevel {
+  if (index >= 75) return 'high';
+  if (index >= 45) return 'medium';
+  return 'low';
 }
 
 function createInitialLocalAlerts(): SystemAlert[] {
@@ -166,7 +189,17 @@ export default function OperatorDashboard() {
   const [selectedGate, setSelectedGate] = useState<GateStatus | null>(null);
   const [showRecommendations, setShowRecommendations] = useState(true);
   const [emergencyLaneOpen, setEmergencyLaneOpen] = useState(false);
+  const [emergencyMode, setEmergencyMode] = useState(false);
+  const [broadcastMessage, setBroadcastMessage] = useState('يرجى استخدام البوابات 1 و3 لتقليل وقت الانتظار.');
   const [dataSource, setDataSource] = useState<'server' | 'local'>('local');
+  const [decisionLog, setDecisionLog] = useState<DecisionLogItem[]>([
+    {
+      id: 'decision-seed-1',
+      timestamp: new Date(Date.now() - 12 * 60_000),
+      action: 'توجيه رقمي أولي',
+      impact: 'انخفاض متوسط الانتظار 8%',
+    },
+  ]);
   const gatesRef = useRef<GateStatus[]>(gates);
   const alertsRef = useRef<SystemAlert[]>(alerts);
 
@@ -245,6 +278,29 @@ export default function OperatorDashboard() {
   }).length;
   const rebalancePlan = computeRebalancePlan(gates);
   const rebalancePeopleCount = rebalancePlan.reduce((sum, action) => sum + action.people, 0);
+  const gateRiskRows = gates.map(gate => {
+    const riskIndex = computeGateRiskIndex(gate);
+    const riskLevel = riskLevelFromIndex(riskIndex);
+    return { gateId: gate.id, gateName: gate.name, riskIndex, riskLevel };
+  });
+  const overallRiskIndex = Math.round(
+    gateRiskRows.reduce((sum, row) => sum + row.riskIndex, 0) / Math.max(1, gateRiskRows.length),
+  );
+  const overallRiskLevel = riskLevelFromIndex(overallRiskIndex);
+  const whatIfReduction = Math.min(45, Math.max(6, Math.round(rebalancePeopleCount / Math.max(1, totalQueued) * 100)));
+  const whatIfWaitReduction = Math.max(1, Math.round((whatIfReduction / 100) * WAIT_TIME_SLA_MINUTES));
+
+  const appendDecision = (action: string, impact: string) => {
+    setDecisionLog(prev => [
+      {
+        id: `decision-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        timestamp: new Date(),
+        action,
+        impact,
+      },
+      ...prev,
+    ].slice(0, 20));
+  };
 
   const handleApplyRebalancePlan = () => {
     if (rebalancePlan.length === 0) {
@@ -256,6 +312,7 @@ export default function OperatorDashboard() {
         actionRequired: false,
       };
       setAlerts(prev => prependAlert(prev, stableAlert));
+      appendDecision('مراجعة خطة إعادة التوازن', 'لا حاجة لنقل الحشود حالياً.');
       return;
     }
 
@@ -300,6 +357,10 @@ export default function OperatorDashboard() {
       actionRequired: false,
     };
     setAlerts(prev => prependAlert(prev, rebalanceAlert));
+    appendDecision(
+      'تطبيق إعادة توازن',
+      `توقع خفض الضغط ${whatIfReduction}% وتقليل الانتظار ${whatIfWaitReduction} دقائق.`,
+    );
   };
 
   const handleSimulateRush = () => {
@@ -327,6 +388,7 @@ export default function OperatorDashboard() {
       actionRequired: true,
     };
     setAlerts(prev => prependAlert(prev, rushAlert));
+    appendDecision('محاكاة ذروة مفاجئة', 'تم رفع مستوى الخطر وبدء الاستعداد التشغيلي.');
   };
 
   const handleToggleEmergencyLane = () => {
@@ -342,8 +404,47 @@ export default function OperatorDashboard() {
         actionRequired: false,
       };
       setAlerts(items => prependAlert(items, emergencyAlert));
+      appendDecision(
+        next ? 'فتح مسار الطوارئ' : 'إغلاق مسار الطوارئ',
+        next ? 'تحويل تدفق عاجل إلى الممر الرئيسي.' : 'عودة التشغيل إلى الوضع القياسي.',
+      );
       return next;
     });
+  };
+
+  const handleToggleEmergencyMode = () => {
+    setEmergencyMode(prev => {
+      const next = !prev;
+      const emergencyAlert: SystemAlert = {
+        id: `emergency-mode-${Date.now()}`,
+        type: next ? 'critical' : 'info',
+        message: next
+          ? 'تم تفعيل وضع الطوارئ: أولوية السلامة وتوحيد الرسائل على التطبيق والشاشات.'
+          : 'تم إيقاف وضع الطوارئ والعودة للوضع التشغيلي الطبيعي.',
+        timestamp: new Date(),
+        actionRequired: next,
+      };
+      setAlerts(items => prependAlert(items, emergencyAlert));
+      appendDecision(
+        next ? 'تفعيل وضع الطوارئ' : 'إيقاف وضع الطوارئ',
+        next ? 'إرسال توجيه موحّد عالي الأولوية.' : 'استئناف إدارة التدفق الاعتيادية.',
+      );
+      return next;
+    });
+  };
+
+  const handleBroadcastGuidance = () => {
+    const message = broadcastMessage.trim();
+    if (!message) return;
+    const messageAlert: SystemAlert = {
+      id: `broadcast-${Date.now()}`,
+      type: 'info',
+      message: `تم بث رسالة موحدة للتطبيق والشاشات: "${message}"`,
+      timestamp: new Date(),
+      actionRequired: false,
+    };
+    setAlerts(prev => prependAlert(prev, messageAlert));
+    appendDecision('بث توجيه موحد', 'الرسالة وصلت للمشجعين عبر التطبيق والشاشات الرقمية.');
   };
 
   // Generate historical data for selected gate
@@ -475,6 +576,13 @@ export default function OperatorDashboard() {
               </div>
             </div>
 
+            <div className="mb-4 rounded-lg border border-purple-200 bg-white p-4">
+              <p className="text-xs text-slate-600">محاكاة سريعة (What-If)</p>
+              <p className="text-sm font-semibold text-slate-900 mt-1">
+                في حال تطبيق إعادة التوازن الآن: انخفاض ضغط متوقع {whatIfReduction}% وتقليل الانتظار حوالي {whatIfWaitReduction} دقائق.
+              </p>
+            </div>
+
             <div className="flex flex-wrap gap-3">
               <Button
                 className="bg-indigo-700 hover:bg-indigo-800"
@@ -494,6 +602,25 @@ export default function OperatorDashboard() {
               >
                 <Shield className="w-4 h-4 mr-2" />
                 {emergencyLaneOpen ? 'مسار الطوارئ مفعل' : 'فتح مسار طوارئ'}
+              </Button>
+              <Button
+                variant={emergencyMode ? 'default' : 'outline'}
+                className={emergencyMode ? 'bg-rose-700 hover:bg-rose-800' : ''}
+                onClick={handleToggleEmergencyMode}
+              >
+                <AlertCircle className="w-4 h-4 mr-2" />
+                {emergencyMode ? 'إيقاف وضع الطوارئ' : 'تفعيل وضع الطوارئ'}
+              </Button>
+            </div>
+
+            <div className="mt-4 flex flex-col gap-2 rounded-lg border border-cyan-200 bg-white p-4 md:flex-row">
+              <Input
+                value={broadcastMessage}
+                onChange={event => setBroadcastMessage(event.target.value)}
+                placeholder="اكتب رسالة التوجيه الموحد للجمهور"
+              />
+              <Button className="bg-cyan-700 hover:bg-cyan-800" onClick={handleBroadcastGuidance}>
+                إرسال للتطبيق + الشاشات
               </Button>
             </div>
           </CardContent>
@@ -596,6 +723,52 @@ export default function OperatorDashboard() {
           </Card>
         )}
 
+        <Card className="mb-8 shadow-md">
+          <CardHeader>
+            <CardTitle>مؤشر الخطر اللحظي (Risk Index)</CardTitle>
+            <CardDescription>
+              القراءة الموحدة للمخاطر حسب الكثافة، الانتظار، وسرعة تغير الحركة.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="mb-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <p className="text-sm font-semibold text-slate-800">
+                مستوى الخطر العام:
+                <span
+                  className={`mr-2 rounded-full px-2 py-0.5 text-xs ${
+                    overallRiskLevel === 'high'
+                      ? 'bg-red-100 text-red-700'
+                      : overallRiskLevel === 'medium'
+                        ? 'bg-amber-100 text-amber-700'
+                        : 'bg-emerald-100 text-emerald-700'
+                  }`}
+                >
+                  {overallRiskLevel === 'high' ? 'مرتفع' : overallRiskLevel === 'medium' ? 'متوسط' : 'منخفض'} - {overallRiskIndex}/100
+                </span>
+              </p>
+            </div>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
+              {gateRiskRows.map(row => (
+                <div key={row.gateId} className="rounded-lg border border-slate-200 p-3">
+                  <p className="text-sm font-semibold text-slate-900">{row.gateName}</p>
+                  <p className="text-2xl font-bold text-slate-900 mt-1">{row.riskIndex}</p>
+                  <p
+                    className={`text-xs font-semibold ${
+                      row.riskLevel === 'high'
+                        ? 'text-red-700'
+                        : row.riskLevel === 'medium'
+                          ? 'text-amber-700'
+                          : 'text-emerald-700'
+                    }`}
+                  >
+                    {row.riskLevel === 'high' ? '🔴 خطر مرتفع' : row.riskLevel === 'medium' ? '🟡 خطر متوسط' : '🟢 خطر منخفض'}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Gates Overview */}
         <Card className="mb-8 shadow-md">
           <CardHeader>
@@ -608,6 +781,8 @@ export default function OperatorDashboard() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               {gates.map(gate => {
                 const colors = getStatusColor(gate.status);
+                const riskIndex = computeGateRiskIndex(gate);
+                const riskLevel = riskLevelFromIndex(riskIndex);
                 return (
                   <div
                     key={gate.id}
@@ -620,6 +795,17 @@ export default function OperatorDashboard() {
                       <h3 className="text-lg font-bold text-slate-900">{gate.name}</h3>
                       <div className={`w-3 h-3 rounded-full ${colors.icon}`} />
                     </div>
+                    <p
+                      className={`mb-3 inline-flex rounded-full px-2 py-1 text-[11px] font-semibold ${
+                        riskLevel === 'high'
+                          ? 'bg-red-100 text-red-700'
+                          : riskLevel === 'medium'
+                            ? 'bg-amber-100 text-amber-700'
+                            : 'bg-emerald-100 text-emerald-700'
+                      }`}
+                    >
+                      Risk Index {riskIndex}
+                    </p>
 
                     <div className="space-y-3">
                       <div>
@@ -740,6 +926,30 @@ export default function OperatorDashboard() {
             </CardContent>
           </Card>
         )}
+
+        <Card className="mt-8 shadow-md">
+          <CardHeader>
+            <CardTitle>سجل القرارات التشغيلية</CardTitle>
+            <CardDescription>
+              ماذا نُفّذ، متى نُفّذ، وما الأثر المتوقع. يستخدم للمراجعة والتعلّم بعد الحدث.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {decisionLog.map(item => (
+                <div key={item.id} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-semibold text-slate-900">{item.action}</p>
+                    <p className="text-xs text-slate-500">
+                      {item.timestamp.toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  </div>
+                  <p className="text-xs text-slate-700 mt-1">{item.impact}</p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

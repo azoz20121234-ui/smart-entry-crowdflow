@@ -8,6 +8,8 @@ import {
   Compass,
   Gift,
   Smartphone,
+  Timer,
+  Users,
   Wallet,
 } from 'lucide-react';
 import { NotificationCenter } from '@/components/NotificationCenter';
@@ -37,6 +39,7 @@ interface FanTicket {
 }
 
 type FanMood = 'excellent' | 'busy' | 'attention';
+type FanProfile = 'family' | 'fast' | 'senior';
 
 function getTicketStatus(peopleAhead: number): FanTicket['status'] {
   if (peopleAhead <= 0) return 'entered';
@@ -66,9 +69,41 @@ export default function FanInterface() {
   const [loyaltyAction, setLoyaltyAction] = useState<'checkin' | 'checkout' | 'spend' | null>(null);
   const [showExtras, setShowExtras] = useState(false);
   const [dataSource, setDataSource] = useState<'server' | 'local'>('local');
+  const [fanProfile, setFanProfile] = useState<FanProfile>('family');
 
   const fanId = ticket.ticketId;
   const mood = useMemo(() => getFanMood(ticket.status), [ticket.status]);
+  const profileLabel: Record<FanProfile, string> = {
+    family: 'عائلة',
+    fast: 'مستعجل',
+    senior: 'كبار سن',
+  };
+  const profileReason: Record<FanProfile, string> = {
+    family: 'تم اختيار مسار أعرض وأكثر هدوءًا مناسب للعائلات.',
+    fast: 'تم اختيار أقصر مسار زمني للوصول الأسرع.',
+    senior: 'تم اختيار مسار أقل ازدحامًا وأكثر أمانًا للحركة.',
+  };
+  const preArrivalInsight = useMemo(() => {
+    if (ticket.peopleAhead >= 18) {
+      return 'تنبيه مبكر: المنطقة القريبة من البوابة الحالية مرشحة لارتفاع الضغط خلال 10 دقائق.';
+    }
+    if (ticket.peopleAhead >= 10) {
+      return 'تنبيه مبكر: الحركة متوسطة الآن، يفضّل التحرك خلال الدقائق القليلة القادمة.';
+    }
+    return 'الوضع متوازن الآن، يمكنك التحرك وفق التوجيه الحالي بدون تأخير.';
+  }, [ticket.peopleAhead]);
+  const queueAssistMessage = useMemo(() => {
+    if (ticket.status === 'waiting') {
+      return `دورك التقريبي خلال ${Math.max(3, Math.round(ticket.peopleAhead / 3))} دقائق.`;
+    }
+    if (ticket.status === 'approaching') {
+      return 'دورك خلال 3 دقائق تقريبًا. استعد للتحرك الآن.';
+    }
+    if (ticket.status === 'ready') {
+      return 'دورك الآن. ابدأ الحركة مباشرة.';
+    }
+    return 'تم الدخول بنجاح. استمتع بالفعالية.';
+  }, [ticket.peopleAhead, ticket.status]);
 
   const moodView = {
     excellent: {
@@ -227,6 +262,20 @@ export default function FanInterface() {
           </CardContent>
         </Card>
 
+        <Alert className="mb-4 border-violet-200 bg-violet-50">
+          <Bell className="h-4 w-4 text-violet-700" />
+          <AlertDescription className="mr-2 text-violet-900">
+            {preArrivalInsight}
+          </AlertDescription>
+        </Alert>
+
+        <Alert className="mb-6 border-emerald-200 bg-emerald-50">
+          <Timer className="h-4 w-4 text-emerald-700" />
+          <AlertDescription className="mr-2 text-emerald-900">
+            {queueAssistMessage}
+          </AlertDescription>
+        </Alert>
+
         {notifications.length > 0 && (
           <Alert className="mb-6 border-blue-200 bg-blue-50">
             <AlertCircle className="h-4 w-4 text-blue-700" />
@@ -239,6 +288,33 @@ export default function FanInterface() {
         <Card className="mb-6 shadow-sm">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5 text-slate-700" />
+              نوع التوجيه
+            </CardTitle>
+            <CardDescription>اختر أسلوب حركة مناسب لك، والنظام يعدّل المسار تلقائيًا.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="mb-3 grid grid-cols-3 gap-2">
+              {(['family', 'fast', 'senior'] as const).map(profile => (
+                <Button
+                  key={profile}
+                  variant={fanProfile === profile ? 'default' : 'outline'}
+                  className={fanProfile === profile ? 'bg-slate-900 hover:bg-slate-800' : ''}
+                  onClick={() => setFanProfile(profile)}
+                >
+                  {profileLabel[profile]}
+                </Button>
+              ))}
+            </div>
+            <p className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-700">
+              {profileReason[fanProfile]}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="mb-6 shadow-sm">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
               <Compass className="h-5 w-5 text-indigo-700" />
               التوجيه المكاني الآن
             </CardTitle>
@@ -247,6 +323,7 @@ export default function FanInterface() {
           <CardContent className="space-y-3">
             <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-4">
               <p className="text-sm font-bold text-indigo-900">{moodView[mood].direction}</p>
+              <p className="mt-2 text-xs font-medium text-indigo-700">{profileReason[fanProfile]}</p>
             </div>
             <div className="grid gap-2 sm:grid-cols-3">
               <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs font-semibold text-emerald-800">
