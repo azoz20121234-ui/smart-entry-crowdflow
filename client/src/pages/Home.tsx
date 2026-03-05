@@ -39,6 +39,9 @@ export default function Home() {
             <Button variant="ghost" onClick={() => setLocation('/system-admin')}>
               إدارة النظام
             </Button>
+            <Button variant="ghost" onClick={() => setLocation('/innovative')}>
+              الميزات الابتكارية
+            </Button>
             <Button variant="ghost" onClick={() => setLocation('/fan')}>
               تطبيق المشجع
             </Button>
