@@ -38,6 +38,8 @@ import {
 import type { LoyaltyWalletResponse } from '@shared/loyalty';
 
 const STEP_INTERVAL_MS = 3000;
+const QR_ROTATION_MS = 20000;
+const DEFAULT_TICKET_ID = 'TKT-2024-156789';
 
 interface FanTicket {
   ticketId: string;
@@ -50,13 +52,29 @@ interface FanTicket {
 
 type FanMood = 'excellent' | 'busy' | 'attention';
 type FanProfile = 'family' | 'fast' | 'senior';
+type TicketLifecycle = 'pre_gate' | 'at_gate_verification' | 'entered_locked';
 interface TicketActivationState {
   deviceVerified: boolean;
   behaviorVerified: boolean;
-  biometricEnabled: boolean;
+  biometricRequired: boolean;
   biometricVerified: boolean;
   activated: boolean;
   activatedAt: string | null;
+  lifecycle: TicketLifecycle;
+  deviceId: string;
+  boundDeviceId: string | null;
+  dynamicQrToken: string;
+  qrExpiresAt: number;
+}
+
+function createDeviceId(): string {
+  const segment = Math.random().toString(36).slice(2, 8).toUpperCase();
+  return `DEV-${segment}`;
+}
+
+function createDynamicQrToken(ticketId: string, deviceId: string): string {
+  const dynamicSegment = Math.random().toString(36).slice(2, 8).toUpperCase();
+  return `${ticketId}-${deviceId.slice(-4)}-${dynamicSegment}`;
 }
 
 function getTicketStatus(peopleAhead: number): FanTicket['status'] {
@@ -75,7 +93,7 @@ function getFanMood(status: FanTicket['status']): FanMood {
 export default function FanInterface() {
   const [, setLocation] = useLocation();
   const [ticket, setTicket] = useState<FanTicket>({
-    ticketId: 'TKT-2024-156789',
+    ticketId: DEFAULT_TICKET_ID,
     fanName: 'محمد أحمد',
     section: 'A - الدرجة الأولى',
     assignedGate: 2,
@@ -102,13 +120,21 @@ export default function FanInterface() {
     accessibility: false,
     children: false,
   });
-  const [ticketActivation, setTicketActivation] = useState<TicketActivationState>({
-    deviceVerified: false,
-    behaviorVerified: false,
-    biometricEnabled: false,
-    biometricVerified: false,
-    activated: false,
-    activatedAt: null,
+  const [ticketActivation, setTicketActivation] = useState<TicketActivationState>(() => {
+    const deviceId = createDeviceId();
+    return {
+      deviceVerified: false,
+      behaviorVerified: false,
+      biometricRequired: false,
+      biometricVerified: false,
+      activated: false,
+      activatedAt: null,
+      lifecycle: 'pre_gate',
+      deviceId,
+      boundDeviceId: deviceId,
+      dynamicQrToken: createDynamicQrToken(DEFAULT_TICKET_ID, deviceId),
+      qrExpiresAt: Date.now() + QR_ROTATION_MS,
+    };
   });
 
   const fanId = ticket.ticketId;
@@ -169,8 +195,15 @@ export default function FanInterface() {
   const canActivateTicket =
     ticketActivation.deviceVerified &&
     ticketActivation.behaviorVerified &&
-    (!ticketActivation.biometricEnabled || ticketActivation.biometricVerified);
-  const isTicketLive = ticketActivation.activated;
+    (!ticketActivation.biometricRequired || ticketActivation.biometricVerified) &&
+    ticketActivation.lifecycle === 'at_gate_verification';
+  const isTicketLive = ticketActivation.activated && ticketActivation.lifecycle === 'entered_locked';
+  const qrSecondsLeft = Math.max(0, Math.ceil((ticketActivation.qrExpiresAt - Date.now()) / 1000));
+  const lifecycleLabel: Record<TicketLifecycle, string> = {
+    pre_gate: 'قبل البوابة: التذكرة غير فعّالة',
+    at_gate_verification: 'عند البوابة: جاري التحقق والتفعيل الفوري',
+    entered_locked: 'بعد الدخول: التذكرة مغلقة وغير قابلة للنقل',
+  };
 
   const moodView = {
     excellent: {
@@ -269,6 +302,18 @@ export default function FanInterface() {
     };
   }, [demoMode]);
 
+  useEffect(() => {
+    if (ticketActivation.lifecycle === 'entered_locked') return;
+    const interval = setInterval(() => {
+      setTicketActivation(previous => ({
+        ...previous,
+        dynamicQrToken: createDynamicQrToken(fanId, previous.deviceId),
+        qrExpiresAt: Date.now() + QR_ROTATION_MS,
+      }));
+    }, QR_ROTATION_MS);
+    return () => clearInterval(interval);
+  }, [fanId, ticketActivation.lifecycle]);
+
   const refreshWallet = async () => {
     const walletState = await fetchLoyaltyWallet(fanId);
     setWallet(walletState);
@@ -308,14 +353,26 @@ export default function FanInterface() {
     setTicketActivation(previous => ({ ...previous, behaviorVerified: true }));
   };
 
+  const handleStartGateVerification = () => {
+    if (ticketActivation.lifecycle !== 'pre_gate') return;
+    setTicketActivation(previous => ({
+      ...previous,
+      lifecycle: 'at_gate_verification',
+      dynamicQrToken: createDynamicQrToken(fanId, previous.deviceId),
+      qrExpiresAt: Date.now() + QR_ROTATION_MS,
+    }));
+    setNotifications(items => ['تم الوصول للبوابة: بدأ التحقق الفوري للتذكرة.', ...items].slice(0, 4));
+  };
+
   const handleActivateTicket = () => {
     if (!canActivateTicket) return;
     setTicketActivation(previous => ({
       ...previous,
       activated: true,
       activatedAt: new Date().toISOString(),
+      lifecycle: 'entered_locked',
     }));
-    setNotifications(items => ['تم تفعيل التذكرة بنجاح. أصبحت صالحة داخل النظام فقط.', ...items].slice(0, 4));
+    setNotifications(items => ['تم التفعيل الفوري والدخول. التذكرة الآن مغلقة وغير قابلة للنقل.', ...items].slice(0, 4));
   };
 
   return (
@@ -376,15 +433,74 @@ export default function FanInterface() {
               التذكرة المرتبطة بالشخص
             </CardTitle>
             <CardDescription>
-              التذكرة تُفعَّل عند الدخول فقط، ولا تملك أي قيمة خارج المنصة.
+              التذكرة لا تُفعَّل إلا عند البوابة، وتفقد قيمتها خارج النظام بالكامل.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-4">
+            <div className="rounded-lg border border-slate-200 bg-white p-3">
+              <div className="mb-2 grid grid-cols-3 gap-2 text-center text-xs font-semibold">
+                <div
+                  className={`rounded-md border p-2 ${
+                    ticketActivation.lifecycle === 'pre_gate'
+                      ? 'border-slate-900 bg-slate-100 text-slate-900'
+                      : 'border-slate-200 bg-white text-slate-500'
+                  }`}
+                >
+                  قبل البوابة
+                </div>
+                <div
+                  className={`rounded-md border p-2 ${
+                    ticketActivation.lifecycle === 'at_gate_verification'
+                      ? 'border-blue-700 bg-blue-50 text-blue-800'
+                      : 'border-slate-200 bg-white text-slate-500'
+                  }`}
+                >
+                  عند البوابة
+                </div>
+                <div
+                  className={`rounded-md border p-2 ${
+                    ticketActivation.lifecycle === 'entered_locked'
+                      ? 'border-emerald-700 bg-emerald-50 text-emerald-800'
+                      : 'border-slate-200 bg-white text-slate-500'
+                  }`}
+                >
+                  بعد الدخول
+                </div>
+              </div>
+              {ticketActivation.lifecycle === 'pre_gate' && (
+                <Button className="w-full bg-blue-700 hover:bg-blue-800" onClick={handleStartGateVerification}>
+                  الوصول للبوابة وبدء التحقق
+                </Button>
+              )}
+            </div>
+
+            <div className="rounded-lg border border-slate-200 bg-white p-3">
+              <p className="text-sm font-semibold text-slate-900">QR ديناميكي مرتبط بجهاز واحد</p>
+              <p className="mt-1 text-xs text-slate-600">لا صور ثابتة ولا PDF. الرمز يتغير تلقائيًا ويرتبط بهذا الجهاز فقط.</p>
+              <p className="mt-2 rounded-md bg-slate-100 px-3 py-2 font-mono text-xs text-slate-800">
+                {ticketActivation.dynamicQrToken}
+              </p>
+              <p className="mt-2 text-xs text-slate-600">
+                الجهاز: <span className="font-semibold text-slate-800">{ticketActivation.deviceId}</span>
+              </p>
+              <p className="text-xs text-slate-600">
+                صلاحية الرمز: <span className="font-semibold text-slate-800">{qrSecondsLeft} ثانية</span>
+              </p>
+            </div>
+
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               <Button
                 variant={ticketActivation.deviceVerified ? 'default' : 'outline'}
                 className={ticketActivation.deviceVerified ? 'bg-slate-900 hover:bg-slate-800' : ''}
-                onClick={() => setTicketActivation(previous => ({ ...previous, deviceVerified: true }))}
+                disabled={ticketActivation.lifecycle !== 'at_gate_verification'}
+                onClick={() => {
+                  const verified = ticketActivation.boundDeviceId === ticketActivation.deviceId;
+                  setTicketActivation(previous => ({ ...previous, deviceVerified: verified }));
+                  setNotifications(items => [
+                    verified ? 'تم تحقق الجهاز: التذكرة مرتبطة بهذا الجهاز فقط.' : 'فشل تحقق الجهاز: الجهاز غير مطابق.',
+                    ...items,
+                  ].slice(0, 4));
+                }}
               >
                 <Smartphone className="ml-2 h-4 w-4" />
                 تحقق الجهاز
@@ -392,7 +508,11 @@ export default function FanInterface() {
               <Button
                 variant={ticketActivation.behaviorVerified ? 'default' : 'outline'}
                 className={ticketActivation.behaviorVerified ? 'bg-slate-900 hover:bg-slate-800' : ''}
-                onClick={() => setTicketActivation(previous => ({ ...previous, behaviorVerified: true }))}
+                disabled={ticketActivation.lifecycle !== 'at_gate_verification'}
+                onClick={() => {
+                  setTicketActivation(previous => ({ ...previous, behaviorVerified: true }));
+                  setNotifications(items => ['تم التحقق السلوكي: نمط الاستخدام مطابق لصاحب التذكرة.', ...items].slice(0, 4));
+                }}
               >
                 <ShieldCheck className="ml-2 h-4 w-4" />
                 تحقق سلوكي
@@ -401,26 +521,31 @@ export default function FanInterface() {
 
             <div className="rounded-lg border border-slate-200 bg-white p-3">
               <div className="mb-2 flex items-center justify-between">
-                <p className="text-sm font-semibold text-slate-800">التحقق البيومتري (اختياري)</p>
+                <p className="text-sm font-semibold text-slate-800">بيومتري خفيف (اختياري)</p>
                 <Button
                   size="sm"
-                  variant={ticketActivation.biometricEnabled ? 'default' : 'outline'}
-                  className={ticketActivation.biometricEnabled ? 'bg-indigo-700 hover:bg-indigo-800' : ''}
+                  variant={ticketActivation.biometricRequired ? 'default' : 'outline'}
+                  className={ticketActivation.biometricRequired ? 'bg-indigo-700 hover:bg-indigo-800' : ''}
+                  disabled={ticketActivation.lifecycle !== 'at_gate_verification'}
                   onClick={() =>
                     setTicketActivation(previous => ({
                       ...previous,
-                      biometricEnabled: !previous.biometricEnabled,
-                      biometricVerified: previous.biometricEnabled ? false : previous.biometricVerified,
+                      biometricRequired: !previous.biometricRequired,
+                      biometricVerified: previous.biometricRequired ? false : previous.biometricVerified,
                     }))
                   }
                 >
-                  {ticketActivation.biometricEnabled ? 'مفعل' : 'غير مفعل'}
+                  {ticketActivation.biometricRequired ? 'مطلوب عند الاشتباه' : 'غير مطلوب'}
                 </Button>
               </div>
-              {ticketActivation.biometricEnabled && (
+              <p className="mb-2 text-xs text-slate-600">
+                التحقق البيومتري يتم لحظيًا عند الاشتباه فقط، بدون تخزين أي بيانات حساسة.
+              </p>
+              {ticketActivation.biometricRequired && (
                 <Button
                   variant={ticketActivation.biometricVerified ? 'default' : 'outline'}
                   className={ticketActivation.biometricVerified ? 'bg-indigo-700 hover:bg-indigo-800' : ''}
+                  disabled={ticketActivation.lifecycle !== 'at_gate_verification'}
                   onClick={() => setTicketActivation(previous => ({ ...previous, biometricVerified: true }))}
                 >
                   <Fingerprint className="ml-2 h-4 w-4" />
@@ -430,26 +555,33 @@ export default function FanInterface() {
             </div>
 
             <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-              <p className="text-xs font-semibold text-slate-700">
-                الحالة: {isTicketLive ? '✅ التذكرة مفعّلة ومرتبطة بالشخص' : '⏳ بانتظار التفعيل عند الدخول'}
-              </p>
-              <p className="text-xs text-slate-600 mt-1">
+              <p className="text-xs font-semibold text-slate-700">الحالة: {lifecycleLabel[ticketActivation.lifecycle]}</p>
+              <p className="mt-1 text-xs text-slate-600">
                 {isTicketLive
-                  ? `تم التفعيل: ${new Date(ticketActivation.activatedAt ?? '').toLocaleTimeString('ar-SA', {
+                  ? `وقت الدخول: ${new Date(ticketActivation.activatedAt ?? '').toLocaleTimeString('ar-SA', {
                       hour: '2-digit',
                       minute: '2-digit',
-                    })}`
-                  : 'التذكرة بلا قيمة خارج النظام حتى تكتمل خطوات التحقق.'}
+                    })} - التذكرة مغلقة وغير قابلة للنقل.`
+                  : 'قبل البوابة تبقى التذكرة غير فعّالة ولا يمكن استخدامها خارج النظام.'}
               </p>
             </div>
 
             <Button
               className="w-full bg-slate-900 hover:bg-slate-800"
-              disabled={!canActivateTicket || isTicketLive}
+              disabled={!canActivateTicket || isTicketLive || ticketActivation.lifecycle !== 'at_gate_verification'}
               onClick={handleActivateTicket}
             >
-              {isTicketLive ? 'تم تفعيل التذكرة' : 'تفعيل التذكرة الآن'}
+              {isTicketLive ? 'تم التفعيل والدخول' : 'تحقق → تفعيل فوري → دخول'}
             </Button>
+
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+              <p className="text-sm font-bold text-emerald-800">النتيجة</p>
+              <p className="mt-1 text-xs font-semibold text-slate-700">❌ لا بيع صور</p>
+              <p className="text-xs font-semibold text-slate-700">❌ لا نقل حسابات</p>
+              <p className="text-xs font-semibold text-slate-700">❌ لا سوق سوداء</p>
+              <p className="mt-1 text-xs font-semibold text-emerald-800">✅ دخول أسرع</p>
+              <p className="text-xs font-semibold text-emerald-800">✅ أمان أعلى</p>
+            </div>
           </CardContent>
         </Card>
 
