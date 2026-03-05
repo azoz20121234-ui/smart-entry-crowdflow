@@ -11,9 +11,12 @@ import {
   CheckCircle2,
   Compass,
   DoorOpen,
+  Fingerprint,
   Gift,
   GraduationCap,
+  LockKeyhole,
   MapPin,
+  ShieldCheck,
   Smartphone,
   Timer,
   Users,
@@ -47,6 +50,14 @@ interface FanTicket {
 
 type FanMood = 'excellent' | 'busy' | 'attention';
 type FanProfile = 'family' | 'fast' | 'senior';
+interface TicketActivationState {
+  deviceVerified: boolean;
+  behaviorVerified: boolean;
+  biometricEnabled: boolean;
+  biometricVerified: boolean;
+  activated: boolean;
+  activatedAt: string | null;
+}
 
 function getTicketStatus(peopleAhead: number): FanTicket['status'] {
   if (peopleAhead <= 0) return 'entered';
@@ -90,6 +101,14 @@ export default function FanInterface() {
     elderly: false,
     accessibility: false,
     children: false,
+  });
+  const [ticketActivation, setTicketActivation] = useState<TicketActivationState>({
+    deviceVerified: false,
+    behaviorVerified: false,
+    biometricEnabled: false,
+    biometricVerified: false,
+    activated: false,
+    activatedAt: null,
   });
 
   const fanId = ticket.ticketId;
@@ -147,6 +166,11 @@ export default function FanInterface() {
     },
   ];
   const activeInclusionCount = Object.values(inclusionNeeds).filter(Boolean).length;
+  const canActivateTicket =
+    ticketActivation.deviceVerified &&
+    ticketActivation.behaviorVerified &&
+    (!ticketActivation.biometricEnabled || ticketActivation.biometricVerified);
+  const isTicketLive = ticketActivation.activated;
 
   const moodView = {
     excellent: {
@@ -281,6 +305,17 @@ export default function FanInterface() {
       priorityPasses: previous.priorityPasses + (ticket.status === 'waiting' ? 0 : 1),
     }));
     setNotifications(items => ['تم احتساب مكافأة الالتزام بالتوجيه (+15 نقطة).', ...items].slice(0, 4));
+    setTicketActivation(previous => ({ ...previous, behaviorVerified: true }));
+  };
+
+  const handleActivateTicket = () => {
+    if (!canActivateTicket) return;
+    setTicketActivation(previous => ({
+      ...previous,
+      activated: true,
+      activatedAt: new Date().toISOString(),
+    }));
+    setNotifications(items => ['تم تفعيل التذكرة بنجاح. أصبحت صالحة داخل النظام فقط.', ...items].slice(0, 4));
   };
 
   return (
@@ -331,6 +366,90 @@ export default function FanInterface() {
               </div>
             </div>
             <p className="text-sm font-semibold">{moodView[mood].text}</p>
+          </CardContent>
+        </Card>
+
+        <Card className="mb-6 border-2 border-slate-200 bg-gradient-to-br from-white to-slate-50 shadow-sm">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <LockKeyhole className="h-5 w-5 text-slate-800" />
+              التذكرة المرتبطة بالشخص
+            </CardTitle>
+            <CardDescription>
+              التذكرة تُفعَّل عند الدخول فقط، ولا تملك أي قيمة خارج المنصة.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <Button
+                variant={ticketActivation.deviceVerified ? 'default' : 'outline'}
+                className={ticketActivation.deviceVerified ? 'bg-slate-900 hover:bg-slate-800' : ''}
+                onClick={() => setTicketActivation(previous => ({ ...previous, deviceVerified: true }))}
+              >
+                <Smartphone className="ml-2 h-4 w-4" />
+                تحقق الجهاز
+              </Button>
+              <Button
+                variant={ticketActivation.behaviorVerified ? 'default' : 'outline'}
+                className={ticketActivation.behaviorVerified ? 'bg-slate-900 hover:bg-slate-800' : ''}
+                onClick={() => setTicketActivation(previous => ({ ...previous, behaviorVerified: true }))}
+              >
+                <ShieldCheck className="ml-2 h-4 w-4" />
+                تحقق سلوكي
+              </Button>
+            </div>
+
+            <div className="rounded-lg border border-slate-200 bg-white p-3">
+              <div className="mb-2 flex items-center justify-between">
+                <p className="text-sm font-semibold text-slate-800">التحقق البيومتري (اختياري)</p>
+                <Button
+                  size="sm"
+                  variant={ticketActivation.biometricEnabled ? 'default' : 'outline'}
+                  className={ticketActivation.biometricEnabled ? 'bg-indigo-700 hover:bg-indigo-800' : ''}
+                  onClick={() =>
+                    setTicketActivation(previous => ({
+                      ...previous,
+                      biometricEnabled: !previous.biometricEnabled,
+                      biometricVerified: previous.biometricEnabled ? false : previous.biometricVerified,
+                    }))
+                  }
+                >
+                  {ticketActivation.biometricEnabled ? 'مفعل' : 'غير مفعل'}
+                </Button>
+              </div>
+              {ticketActivation.biometricEnabled && (
+                <Button
+                  variant={ticketActivation.biometricVerified ? 'default' : 'outline'}
+                  className={ticketActivation.biometricVerified ? 'bg-indigo-700 hover:bg-indigo-800' : ''}
+                  onClick={() => setTicketActivation(previous => ({ ...previous, biometricVerified: true }))}
+                >
+                  <Fingerprint className="ml-2 h-4 w-4" />
+                  تحقق بيومتري خفيف
+                </Button>
+              )}
+            </div>
+
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <p className="text-xs font-semibold text-slate-700">
+                الحالة: {isTicketLive ? '✅ التذكرة مفعّلة ومرتبطة بالشخص' : '⏳ بانتظار التفعيل عند الدخول'}
+              </p>
+              <p className="text-xs text-slate-600 mt-1">
+                {isTicketLive
+                  ? `تم التفعيل: ${new Date(ticketActivation.activatedAt ?? '').toLocaleTimeString('ar-SA', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}`
+                  : 'التذكرة بلا قيمة خارج النظام حتى تكتمل خطوات التحقق.'}
+              </p>
+            </div>
+
+            <Button
+              className="w-full bg-slate-900 hover:bg-slate-800"
+              disabled={!canActivateTicket || isTicketLive}
+              onClick={handleActivateTicket}
+            >
+              {isTicketLive ? 'تم تفعيل التذكرة' : 'تفعيل التذكرة الآن'}
+            </Button>
           </CardContent>
         </Card>
 
@@ -409,7 +528,11 @@ export default function FanInterface() {
               </div>
             </div>
             <div className="flex gap-3">
-              <Button className="flex-1 bg-slate-900 hover:bg-slate-800" onClick={() => setNotifications([])}>
+              <Button
+                className="flex-1 bg-slate-900 hover:bg-slate-800"
+                disabled={!isTicketLive}
+                onClick={() => setNotifications([])}
+              >
                 تأكيد واستمرار
               </Button>
               <Button variant="outline" className="flex-1" onClick={() => window.location.reload()}>
@@ -609,15 +732,15 @@ export default function FanInterface() {
               <CardContent>
                 <p className="mb-4 text-3xl font-extrabold text-amber-700">{wallet?.balance ?? 0}</p>
                 <div className="grid gap-2 sm:grid-cols-3">
-                  <Button disabled={loyaltyAction !== null} onClick={handleEarlyArrivalReward} className="bg-blue-700 hover:bg-blue-800">
+                  <Button disabled={loyaltyAction !== null || !isTicketLive} onClick={handleEarlyArrivalReward} className="bg-blue-700 hover:bg-blue-800">
                     <Gift className="ml-2 h-4 w-4" />
                     حضور مبكر
                   </Button>
-                  <Button disabled={loyaltyAction !== null} onClick={handleDelayedExitReward} className="bg-emerald-700 hover:bg-emerald-800">
+                  <Button disabled={loyaltyAction !== null || !isTicketLive} onClick={handleDelayedExitReward} className="bg-emerald-700 hover:bg-emerald-800">
                     <Gift className="ml-2 h-4 w-4" />
                     خروج ذكي
                   </Button>
-                  <Button disabled={loyaltyAction !== null} onClick={handleSpendTokens} variant="outline">
+                  <Button disabled={loyaltyAction !== null || !isTicketLive} onClick={handleSpendTokens} variant="outline">
                     استخدام 20
                   </Button>
                 </div>
