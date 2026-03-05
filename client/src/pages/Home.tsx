@@ -33,10 +33,13 @@ export default function Home() {
             <Button variant="ghost" onClick={() => setLocation('/admin')}>
               لوحة التحكم
             </Button>
+            <Button variant="ghost" onClick={() => setLocation('/operator')}>
+              لوحة المنظمين
+            </Button>
             <Button variant="ghost" onClick={() => setLocation('/fan')}>
               تطبيق المشجع
             </Button>
-            <Button className="bg-blue-700 hover:bg-blue-800" onClick={() => setLocation('/admin')}>
+            <Button className="bg-blue-700 hover:bg-blue-800" onClick={() => setLocation('/operator')}>
               ابدأ الآن
             </Button>
           </div>
