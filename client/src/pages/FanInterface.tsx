@@ -8,17 +8,22 @@ import {
   Baby,
   BadgeCheck,
   Bell,
+  Camera,
   CheckCircle2,
   Compass,
+  CreditCard,
   DoorOpen,
   Fingerprint,
   Gift,
   GraduationCap,
   LockKeyhole,
+  MapPinned,
   MapPin,
   ShieldCheck,
   Smartphone,
   Timer,
+  Ticket,
+  UtensilsCrossed,
   Users,
   Wallet,
 } from 'lucide-react';
@@ -53,6 +58,9 @@ interface FanTicket {
 type FanMood = 'excellent' | 'busy' | 'attention';
 type FanProfile = 'family' | 'fast' | 'senior';
 type TicketLifecycle = 'pre_gate' | 'at_gate_verification' | 'entered_locked';
+type ArTarget = 'seat' | 'restroom' | 'food';
+type TicketPersona = 'standard' | 'vip' | 'family';
+type SeatOrderItem = 'drink' | 'snack' | 'meal';
 interface TicketActivationState {
   deviceVerified: boolean;
   behaviorVerified: boolean;
@@ -136,6 +144,17 @@ export default function FanInterface() {
       qrExpiresAt: Date.now() + QR_ROTATION_MS,
     };
   });
+  const [arMode, setArMode] = useState(false);
+  const [arTarget, setArTarget] = useState<ArTarget>('seat');
+  const [ticketPersona, setTicketPersona] = useState<TicketPersona>('standard');
+  const [seatOrderItem, setSeatOrderItem] = useState<SeatOrderItem>('drink');
+  const [seatOrderQuantity, setSeatOrderQuantity] = useState(1);
+  const [seatOrderLoading, setSeatOrderLoading] = useState(false);
+  const [cashWallet, setCashWallet] = useState({
+    balanceSar: 180,
+    spentSar: 0,
+    orders: 0,
+  });
 
   const fanId = ticket.ticketId;
   const mood = useMemo(() => getFanMood(ticket.status), [ticket.status]);
@@ -204,6 +223,46 @@ export default function FanInterface() {
     at_gate_verification: 'عند البوابة: جاري التحقق والتفعيل الفوري',
     entered_locked: 'بعد الدخول: التذكرة مغلقة وغير قابلة للنقل',
   };
+  const arTargetLabel: Record<ArTarget, string> = {
+    seat: 'المقعد',
+    restroom: 'أقرب دورة مياه',
+    food: 'أقرب منفذ طعام',
+  };
+  const arGuidance: Record<ArTarget, string> = {
+    seat: `اتبع الأسهم الظاهرة للوصول إلى ${ticket.section} خلال 90 ثانية.`,
+    restroom: 'اتبع المسار البنفسجي: دورة المياه الأقرب تبعد 45 مترًا.',
+    food: 'اتبع المسار البرتقالي: منفذ الطعام الأقرب بدون طابور طويل.',
+  };
+  const seatOrderCatalog: Record<SeatOrderItem, { label: string; priceSar: number; etaMin: number }> = {
+    drink: { label: 'مشروب بارد', priceSar: 18, etaMin: 6 },
+    snack: { label: 'سناك سريع', priceSar: 24, etaMin: 8 },
+    meal: { label: 'وجبة كاملة', priceSar: 38, etaMin: 12 },
+  };
+  const selectedSeatOrder = seatOrderCatalog[seatOrderItem];
+  const seatOrderTotal = selectedSeatOrder.priceSar * seatOrderQuantity;
+  const personaLabel: Record<TicketPersona, string> = {
+    standard: 'تذكرة عادية',
+    vip: 'تذكرة VIP',
+    family: 'تذكرة عائلية',
+  };
+  const personalizedJourney = useMemo(() => {
+    if (ticketPersona === 'vip') {
+      return {
+        gateAlert: `افتح البوابة VIP-${ticket.assignedGate} الآن لتفادي أي انتظار.`,
+        nearbyOffer: 'عرض حصري قريب: ترقية مشروب مجانية عند الطلب من المقعد.',
+      };
+    }
+    if (ticketPersona === 'family') {
+      return {
+        gateAlert: `استخدم البوابة ${ticket.assignedGate} العائلية (مسار أوسع وعربة أطفال).`,
+        nearbyOffer: 'عرض قريب للعائلات: وجبة أطفال بخصم 20% في المنفذ الشرقي.',
+      };
+    }
+    return {
+      gateAlert: `البوابة ${ticket.assignedGate} هي الأسرع حاليًا حسب الضغط اللحظي.`,
+      nearbyOffer: 'عرض قريب: خصم 10% على الطلب المسبق من المقعد.',
+    };
+  }, [ticket.assignedGate, ticketPersona]);
 
   const moodView = {
     excellent: {
@@ -373,6 +432,29 @@ export default function FanInterface() {
       lifecycle: 'entered_locked',
     }));
     setNotifications(items => ['تم التفعيل الفوري والدخول. التذكرة الآن مغلقة وغير قابلة للنقل.', ...items].slice(0, 4));
+  };
+
+  const handleSeatOrder = async () => {
+    if (!isTicketLive) {
+      setNotifications(items => ['الطلب من المقعد متاح بعد تفعيل التذكرة والدخول فقط.', ...items].slice(0, 4));
+      return;
+    }
+    if (cashWallet.balanceSar < seatOrderTotal) {
+      setNotifications(items => ['رصيد المحفظة غير كافٍ لإتمام الطلب الحالي.', ...items].slice(0, 4));
+      return;
+    }
+    setSeatOrderLoading(true);
+    await new Promise(resolve => setTimeout(resolve, 500));
+    setCashWallet(previous => ({
+      balanceSar: previous.balanceSar - seatOrderTotal,
+      spentSar: previous.spentSar + seatOrderTotal,
+      orders: previous.orders + 1,
+    }));
+    setNotifications(items => [
+      `تم تأكيد الطلب: ${selectedSeatOrder.label} × ${seatOrderQuantity}. التسليم خلال ${selectedSeatOrder.etaMin} دقائق.`,
+      ...items,
+    ].slice(0, 4));
+    setSeatOrderLoading(false);
   };
 
   return (
@@ -671,6 +753,141 @@ export default function FanInterface() {
                 تحديث الحالة
               </Button>
             </div>
+          </CardContent>
+        </Card>
+
+        <Card className="mb-6 shadow-sm border border-cyan-200 bg-gradient-to-br from-cyan-50 to-blue-50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Camera className="h-5 w-5 text-cyan-700" />
+              الملاحة بالواقع المعزز (AR)
+            </CardTitle>
+            <CardDescription>استخدم الكاميرا لإيجاد المقعد أو أقرب دورة مياه أو منافذ الطعام عبر إرشادات على الشاشة.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex flex-wrap gap-2">
+              {(['seat', 'restroom', 'food'] as const).map(target => (
+                <Button
+                  key={target}
+                  variant={arTarget === target ? 'default' : 'outline'}
+                  className={arTarget === target ? 'bg-cyan-700 hover:bg-cyan-800' : ''}
+                  onClick={() => setArTarget(target)}
+                >
+                  {arTargetLabel[target]}
+                </Button>
+              ))}
+            </div>
+
+            <div className="rounded-lg border border-cyan-200 bg-white p-3">
+              <p className="text-sm font-semibold text-cyan-900">{arGuidance[arTarget]}</p>
+              <p className="mt-2 text-xs text-slate-600">
+                وضع الكاميرا: {arMode ? 'مفعل' : 'متوقف'} | طبقة الإرشاد: أسهم حيّة + مسافة + وقت وصول
+              </p>
+            </div>
+
+            <Button
+              className={arMode ? 'w-full bg-slate-900 hover:bg-slate-800' : 'w-full bg-cyan-700 hover:bg-cyan-800'}
+              disabled={!isTicketLive}
+              onClick={() => setArMode(value => !value)}
+            >
+              <MapPinned className="ml-2 h-4 w-4" />
+              {arMode ? 'إيقاف AR' : 'تشغيل AR بالكاميرا'}
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card className="mb-6 shadow-sm border border-lime-200 bg-gradient-to-br from-lime-50 to-emerald-50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Ticket className="h-5 w-5 text-lime-700" />
+              رحلة المشجع المخصصة
+            </CardTitle>
+            <CardDescription>تنبيهات وقرارات مخصصة حسب نوع التذكرة وموقعك الحالي.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              {(['standard', 'vip', 'family'] as const).map(persona => (
+                <Button
+                  key={persona}
+                  variant={ticketPersona === persona ? 'default' : 'outline'}
+                  className={ticketPersona === persona ? 'bg-lime-700 hover:bg-lime-800' : ''}
+                  onClick={() => setTicketPersona(persona)}
+                >
+                  {personaLabel[persona]}
+                </Button>
+              ))}
+            </div>
+            <div className="rounded-lg border border-lime-200 bg-white p-3">
+              <p className="text-sm font-semibold text-lime-800">{personalizedJourney.gateAlert}</p>
+              <p className="mt-2 text-xs font-medium text-slate-700">{personalizedJourney.nearbyOffer}</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="mb-6 shadow-sm border border-rose-200 bg-gradient-to-br from-rose-50 to-orange-50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <UtensilsCrossed className="h-5 w-5 text-rose-700" />
+              المحفظة الرقمية والطلب من المقعد
+            </CardTitle>
+            <CardDescription>طلب الطعام والمشروبات من المقعد مع دفع غير نقدي لتقليل الطوابير في الممرات.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="rounded-lg border border-rose-200 bg-white p-3">
+                <p className="text-xs text-slate-600">الرصيد</p>
+                <p className="text-xl font-bold text-rose-700">{cashWallet.balanceSar} ر.س</p>
+              </div>
+              <div className="rounded-lg border border-rose-200 bg-white p-3">
+                <p className="text-xs text-slate-600">المصروف</p>
+                <p className="text-xl font-bold text-rose-700">{cashWallet.spentSar} ر.س</p>
+              </div>
+              <div className="rounded-lg border border-rose-200 bg-white p-3">
+                <p className="text-xs text-slate-600">الطلبات</p>
+                <p className="text-xl font-bold text-rose-700">{cashWallet.orders}</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              {(['drink', 'snack', 'meal'] as const).map(item => (
+                <Button
+                  key={item}
+                  variant={seatOrderItem === item ? 'default' : 'outline'}
+                  className={seatOrderItem === item ? 'bg-rose-700 hover:bg-rose-800' : ''}
+                  onClick={() => setSeatOrderItem(item)}
+                >
+                  {seatOrderCatalog[item].label}
+                </Button>
+              ))}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={() => setSeatOrderQuantity(value => Math.max(1, value - 1))}>
+                -
+              </Button>
+              <span className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-semibold">
+                الكمية: {seatOrderQuantity}
+              </span>
+              <Button variant="outline" onClick={() => setSeatOrderQuantity(value => Math.min(4, value + 1))}>
+                +
+              </Button>
+              <span className="mr-auto text-xs font-semibold text-slate-700">
+                الإجمالي: {seatOrderTotal} ر.س
+              </span>
+            </div>
+
+            <div className="rounded-lg border border-rose-200 bg-white p-3 text-xs font-medium text-slate-700">
+              الدفع غير النقدي يقلل التكدس ويرفع معدل الإنفاق داخل الملعب. التقدير المستهدف: حتى 20%.
+            </div>
+
+            <Button
+              className="w-full bg-rose-700 hover:bg-rose-800"
+              disabled={!isTicketLive || seatOrderLoading}
+              onClick={handleSeatOrder}
+            >
+              <CreditCard className="ml-2 h-4 w-4" />
+              {seatOrderLoading ? 'جارٍ تأكيد الطلب...' : `ادفع الآن واطلب (${seatOrderTotal} ر.س)`}
+            </Button>
           </CardContent>
         </Card>
 
