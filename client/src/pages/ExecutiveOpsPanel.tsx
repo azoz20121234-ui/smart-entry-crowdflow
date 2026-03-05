@@ -14,25 +14,21 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CrowdPredictionPanel } from '@/components/CrowdPredictionPanel';
 import { TrendingUp, TrendingDown, AlertTriangle, DollarSign, Users, Zap, BarChart3, Activity, ArrowRight } from 'lucide-react';
+import { fetchExecutiveState } from '@/lib/executiveApi';
+import type { ExecutiveKPI, ExecutivePrediction, ExecutiveSafetyMetric } from '@shared/operator';
 
-interface KPI {
-  label: string;
-  value: number;
-  unit: string;
-  change: number;
-  trend: 'up' | 'down' | 'stable';
-}
+const STEP_INTERVAL_MS = 5000;
 
 export default function ExecutiveOpsPanel() {
   const [, setLocation] = useLocation();
-  const [kpis, setKpis] = useState<KPI[]>([
+  const [kpis, setKpis] = useState<ExecutiveKPI[]>([
     { label: 'إجمالي الحاضرين', value: 2100, unit: 'شخص', change: 5, trend: 'up' },
     { label: 'معدل الدخول', value: 180, unit: 'شخص/دقيقة', change: -3, trend: 'down' },
     { label: 'متوسط وقت الانتظار', value: 8, unit: 'دقائق', change: 2, trend: 'up' },
     { label: 'كفاءة التشغيل', value: 82, unit: '%', change: 8, trend: 'up' },
   ]);
 
-  const [predictions, setPredictions] = useState([
+  const [predictions, setPredictions] = useState<ExecutivePrediction[]>([
     { time: '18:00', predictedDensity: 45, confidence: 85, riskLevel: 'low' as const },
     { time: '18:15', predictedDensity: 58, confidence: 88, riskLevel: 'medium' as const },
     { time: '18:30', predictedDensity: 72, confidence: 90, riskLevel: 'high' as const },
@@ -41,7 +37,7 @@ export default function ExecutiveOpsPanel() {
     { time: '19:15', predictedDensity: 65, confidence: 85, riskLevel: 'medium' as const },
   ]);
 
-  const [safetyMetrics, setSafetyMetrics] = useState([
+  const [safetyMetrics, setSafetyMetrics] = useState<ExecutiveSafetyMetric[]>([
     { gateId: 1, density: 45, riskLevel: 'safe' as const },
     { gateId: 2, density: 72, riskLevel: 'danger' as const },
     { gateId: 3, density: 38, riskLevel: 'safe' as const },
@@ -69,6 +65,7 @@ export default function ExecutiveOpsPanel() {
     '⚠️ التنبؤ يشير إلى ذروة متوقعة في الساعة 18:45',
     '✓ البوابة 3 تعمل بكفاءة عالية جداً',
   ]);
+  const [dataSource, setDataSource] = useState<'server' | 'local'>('local');
 
   const [recommendations, setRecommendations] = useState([
     'تحويل 150 شخص من البوابة 4 إلى البوابة 1 و3',
@@ -77,9 +74,8 @@ export default function ExecutiveOpsPanel() {
     'إعادة توجيه التذاكر الجديدة نحو البوابات 1 و3',
   ]);
 
-  // Simulate real-time updates
   useEffect(() => {
-    const interval = setInterval(() => {
+    const applyFallbackSimulation = () => {
       setKpis(prev =>
         prev.map(kpi => ({
           ...kpi,
@@ -103,9 +99,33 @@ export default function ExecutiveOpsPanel() {
           density: Math.max(20, Math.min(100, metric.density + (Math.random() - 0.5) * 8)),
         }))
       );
-    }, 5000);
+    };
 
-    return () => clearInterval(interval);
+    let isActive = true;
+
+    const syncExecutiveState = async () => {
+      try {
+        const state = await fetchExecutiveState();
+        if (!isActive) return;
+        setDataSource('server');
+        setKpis(state.kpis);
+        setPredictions(state.predictions);
+        setSafetyMetrics(state.safetyMetrics);
+        setAlerts(state.alerts);
+      } catch {
+        if (!isActive) return;
+        setDataSource('local');
+        applyFallbackSimulation();
+      }
+    };
+
+    syncExecutiveState();
+    const interval = setInterval(syncExecutiveState, STEP_INTERVAL_MS);
+
+    return () => {
+      isActive = false;
+      clearInterval(interval);
+    };
   }, []);
 
   const peakTimeEstimate = new Date(Date.now() + 45 * 60000);
@@ -132,6 +152,15 @@ export default function ExecutiveOpsPanel() {
               </div>
             </div>
             <div className="text-right">
+              <p
+                className={`mb-1 inline-flex rounded-full px-2 py-1 text-xs font-semibold ${
+                  dataSource === 'server'
+                    ? 'bg-green-100 text-green-800'
+                    : 'bg-yellow-100 text-yellow-800'
+                }`}
+              >
+                {dataSource === 'server' ? 'بيانات API' : 'وضع محلي (Fallback)'}
+              </p>
               <p className="text-sm text-blue-100">آخر تحديث</p>
               <p className="text-lg font-semibold">{new Date().toLocaleTimeString('ar-SA')}</p>
             </div>

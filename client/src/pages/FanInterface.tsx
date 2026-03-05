@@ -18,6 +18,9 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { QueueTimer } from '@/components/QueueTimer';
 import { FlowAnalytics } from '@/components/FlowAnalytics';
+import { fetchOperatorState } from '@/lib/operatorApi';
+
+const STEP_INTERVAL_MS = 2000;
 
 interface FanTicket {
   ticketId: string;
@@ -64,22 +67,21 @@ export default function FanInterface() {
   ]);
 
   const [showAnalytics, setShowAnalytics] = useState(false);
+  const [dataSource, setDataSource] = useState<'server' | 'local'>('local');
 
-  // Simulate real-time updates
+  const getTicketStatus = (peopleAhead: number): FanTicket['status'] => {
+    if (peopleAhead <= 0) return 'entered';
+    if (peopleAhead <= 2) return 'ready';
+    if (peopleAhead <= 5) return 'approaching';
+    return 'waiting';
+  };
+
   useEffect(() => {
-    const interval = setInterval(() => {
+    const applyLocalSimulation = () => {
       setTicket(prev => {
-        // Update queue position
         const newPeopleAhead = Math.max(0, prev.peopleAhead - 1);
-        let newStatus = prev.status;
+        const newStatus = getTicketStatus(newPeopleAhead);
 
-        if (newPeopleAhead <= 2) {
-          newStatus = 'ready';
-        } else if (newPeopleAhead <= 5) {
-          newStatus = 'approaching';
-        }
-
-        // Randomly reassign gate based on crowd flow (adaptive routing)
         const shouldReassign = Math.random() > 0.95;
         let newGate = prev.assignedGate;
         if (shouldReassign) {
@@ -99,7 +101,6 @@ export default function FanInterface() {
         };
       });
 
-      // Update gate info
       setGateInfo(prev => ({
         ...prev,
         currentlyServing: prev.currentlyServing + (Math.random() > 0.5 ? 1 : 0),
@@ -107,7 +108,6 @@ export default function FanInterface() {
         currentLoad: Math.max(1500, Math.min(2500, prev.currentLoad + (Math.random() - 0.5) * 50)),
       }));
 
-      // Update flow data
       setFlowData(prev => {
         const newFlowRate = Math.max(30, Math.min(55, prev[prev.length - 1].flowRate + (Math.random() - 0.5) * 4));
         const newWaitTime = Math.max(5, Math.min(15, 350 / newFlowRate));
@@ -123,9 +123,72 @@ export default function FanInterface() {
           estimatedWaitTime: newWaitTime,
         }];
       });
-    }, 2000);
+    };
 
-    return () => clearInterval(interval);
+    let isActive = true;
+
+    const syncFromApi = async () => {
+      try {
+        const operatorState = await fetchOperatorState();
+        if (!isActive || operatorState.gates.length === 0) return;
+        setDataSource('server');
+
+        const bestGate = [...operatorState.gates].sort((a, b) => a.currentQueue - b.currentQueue)[0];
+        setTicket(prev => {
+          const peopleAhead = Math.max(0, Math.round(bestGate.currentQueue));
+          const assignedGate = bestGate.id;
+          if (assignedGate !== prev.assignedGate) {
+            setNotifications(items => [...items, `تم تحديث البوابة المخصصة إلى البوابة ${assignedGate}`]);
+          }
+          return {
+            ...prev,
+            assignedGate,
+            peopleAhead,
+            queueNumber: 100 + peopleAhead,
+            estimatedWaitTime: Math.max(1, bestGate.averageWaitTime),
+            status: getTicketStatus(peopleAhead),
+          };
+        });
+
+        setGateInfo(prev => ({
+          ...prev,
+          currentlyServing: Math.max(prev.currentlyServing, 100 + Math.round(bestGate.currentQueue * 0.6)),
+          nextUp: 100 + Math.round(bestGate.currentQueue * 0.6) + 1,
+          averageWaitTime: bestGate.averageWaitTime,
+          capacity: bestGate.capacity,
+          currentLoad: Math.min(bestGate.capacity, Math.round(bestGate.currentQueue * 24)),
+        }));
+
+        setFlowData(prev => {
+          const lastTime = prev[prev.length - 1].time;
+          const [hours, minutes] = lastTime.split(':').map(Number);
+          const newMinutes = (minutes + 5) % 60;
+          const newHours = minutes + 5 >= 60 ? hours + 1 : hours;
+          const newTime = `${String(newHours).padStart(2, '0')}:${String(newMinutes).padStart(2, '0')}`;
+
+          return [
+            ...prev.slice(1),
+            {
+              time: newTime,
+              flowRate: Math.max(20, bestGate.flowRate),
+              estimatedWaitTime: Math.max(1, bestGate.averageWaitTime),
+            },
+          ];
+        });
+      } catch {
+        if (!isActive) return;
+        setDataSource('local');
+        applyLocalSimulation();
+      }
+    };
+
+    syncFromApi();
+    const interval = setInterval(syncFromApi, STEP_INTERVAL_MS);
+
+    return () => {
+      isActive = false;
+      clearInterval(interval);
+    };
   }, []);
 
   const getStatusColor = (status: string) => {
@@ -195,6 +258,15 @@ export default function FanInterface() {
               </div>
             </div>
             <div className="flex items-center gap-4">
+              <span
+                className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${
+                  dataSource === 'server'
+                    ? 'bg-green-100 text-green-800'
+                    : 'bg-yellow-100 text-yellow-800'
+                }`}
+              >
+                {dataSource === 'server' ? 'بيانات API' : 'وضع محلي (Fallback)'}
+              </span>
               <NotificationCenter fanId={ticket.ticketId} />
               <div className="text-right">
                 <p className="text-sm text-slate-600">مرحباً بك</p>

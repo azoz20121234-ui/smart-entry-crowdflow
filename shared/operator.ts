@@ -30,6 +30,36 @@ export interface OperatorStateResponse {
   alerts: SystemAlert[];
 }
 
+export interface ExecutiveKPI {
+  label: string;
+  value: number;
+  unit: string;
+  change: number;
+  trend: GateTrend;
+}
+
+export interface ExecutiveSafetyMetric {
+  gateId: number;
+  density: number;
+  riskLevel: "safe" | "caution" | "danger" | "critical";
+}
+
+export interface ExecutivePrediction {
+  time: string;
+  predictedDensity: number;
+  confidence: number;
+  riskLevel: "low" | "medium" | "high" | "critical";
+}
+
+export interface ExecutiveStateResponse {
+  source: "server";
+  generatedAt: string;
+  kpis: ExecutiveKPI[];
+  safetyMetrics: ExecutiveSafetyMetric[];
+  alerts: string[];
+  predictions: ExecutivePrediction[];
+}
+
 export const createDefaultGates = (): GateStatus[] => [
   {
     id: 1,
@@ -76,3 +106,30 @@ export const createDefaultGates = (): GateStatus[] => [
     status: "critical",
   },
 ];
+
+export const createDefaultAlerts = (): SystemAlert[] => {
+  const now = Date.now();
+  return [
+    {
+      id: `seed-critical-${now}`,
+      type: "critical",
+      message: "البوابة 4 تتجاوز السعة المقررة. معدل التدفق منخفض جداً.",
+      timestamp: new Date(now - 5 * 60000).toISOString(),
+      actionRequired: true,
+    },
+    {
+      id: `seed-warning-${now}`,
+      type: "warning",
+      message: "البوابة 2 تقترب من الحد الأقصى. يوصى بتحويل بعض الجماهير.",
+      timestamp: new Date(now - 10 * 60000).toISOString(),
+      actionRequired: true,
+    },
+    {
+      id: `seed-info-${now}`,
+      type: "info",
+      message: "البوابة 3 تعمل بكفاءة عالية جداً.",
+      timestamp: new Date(now - 15 * 60000).toISOString(),
+      actionRequired: false,
+    },
+  ];
+};

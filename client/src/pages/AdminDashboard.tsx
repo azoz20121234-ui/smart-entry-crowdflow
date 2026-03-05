@@ -14,6 +14,8 @@ import { AlertCircle, TrendingUp, Users, Zap, Clock, Activity } from 'lucide-rea
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { fetchOperatorState } from '@/lib/operatorApi';
+import { createDefaultGates, type GateStatus } from '@shared/operator';
 
 // Mock data for crowd flow
 const generateCrowdData = () => {
@@ -28,12 +30,25 @@ const generateCrowdData = () => {
   }));
 };
 
-const gateStatuses = [
-  { id: 1, name: 'البوابة 1', capacity: 2500, current: 1850, status: 'normal', flow: 2200 },
-  { id: 2, name: 'البوابة 2', capacity: 2500, current: 2100, status: 'warning', flow: 2050 },
-  { id: 3, name: 'البوابة 3', capacity: 2500, current: 1650, status: 'normal', flow: 2300 },
-  { id: 4, name: 'البوابة 4', capacity: 2500, current: 2350, status: 'critical', flow: 1800 },
-];
+const STEP_INTERVAL_MS = 3000;
+
+type AdminGateStatus = {
+  id: number;
+  name: string;
+  capacity: number;
+  current: number;
+  status: 'normal' | 'warning' | 'critical';
+  flow: number;
+};
+
+const mapOperatorGateToAdminGate = (gate: GateStatus): AdminGateStatus => ({
+  id: gate.id,
+  name: gate.name,
+  capacity: gate.capacity,
+  current: Math.min(gate.capacity, Math.max(400, Math.round(gate.currentQueue * 25))),
+  status: gate.status,
+  flow: Math.round(gate.flowRate * 50),
+});
 
 const getStatusColor = (status: string) => {
   switch (status) {
@@ -63,10 +78,42 @@ const getStatusLabel = (status: string) => {
 
 export default function AdminDashboard() {
   const [crowdData, setCrowdData] = useState(generateCrowdData());
+  const [gateStatuses, setGateStatuses] = useState<AdminGateStatus[]>(() =>
+    createDefaultGates().map(mapOperatorGateToAdminGate)
+  );
   const [totalCrowd, setTotalCrowd] = useState(7650);
   const [avgWaitTime, setAvgWaitTime] = useState(8);
+  const [dataSource, setDataSource] = useState<'server' | 'local'>('local');
 
-  // Simulate real-time updates
+  useEffect(() => {
+    let isActive = true;
+    const syncAdminState = async () => {
+      try {
+        const state = await fetchOperatorState();
+        if (!isActive) return;
+        setDataSource('server');
+        const nextGates = state.gates.map(mapOperatorGateToAdminGate);
+        setGateStatuses(nextGates);
+        setTotalCrowd(nextGates.reduce((sum, gate) => sum + gate.current, 0));
+        const avgWait =
+          state.gates.reduce((sum, gate) => sum + gate.averageWaitTime, 0) /
+          Math.max(1, state.gates.length);
+        setAvgWaitTime(Number(avgWait.toFixed(1)));
+      } catch {
+        if (!isActive) return;
+        setDataSource('local');
+      }
+    };
+
+    syncAdminState();
+    const interval = setInterval(syncAdminState, STEP_INTERVAL_MS);
+    return () => {
+      isActive = false;
+      clearInterval(interval);
+    };
+  }, []);
+
+  // Simulate charts locally even when data source is API
   useEffect(() => {
     const interval = setInterval(() => {
       setCrowdData(prev => {
@@ -83,8 +130,6 @@ export default function AdminDashboard() {
         return newData;
       });
       
-      setTotalCrowd(prev => Math.max(5000, Math.min(8500, prev + (Math.random() - 0.5) * 200)));
-      setAvgWaitTime(prev => Math.max(3, Math.min(15, prev + (Math.random() - 0.5) * 2)));
     }, 3000);
 
     return () => clearInterval(interval);
@@ -106,6 +151,15 @@ export default function AdminDashboard() {
             <div>
               <h1 className="text-4xl font-bold text-slate-900">لوحة التحكم</h1>
               <p className="text-slate-600 mt-2">إدارة الحشود والبوابات في الوقت الفعلي</p>
+              <p
+                className={`mt-2 inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
+                  dataSource === 'server'
+                    ? 'bg-green-100 text-green-800'
+                    : 'bg-yellow-100 text-yellow-800'
+                }`}
+              >
+                {dataSource === 'server' ? 'بيانات API' : 'وضع محلي (Fallback)'}
+              </p>
             </div>
             <div className="flex gap-3">
               <Button variant="outline">تصدير التقرير</Button>
