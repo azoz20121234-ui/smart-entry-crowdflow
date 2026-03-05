@@ -158,7 +158,7 @@ export default function AdminDashboard() {
                     : 'bg-yellow-100 text-yellow-800'
                 }`}
               >
-                {dataSource === 'server' ? 'بيانات API' : 'وضع محلي (Fallback)'}
+                {dataSource === 'server' ? 'بيانات مباشرة' : 'وضع محلي احتياطي'}
               </p>
             </div>
             <div className="flex gap-3">

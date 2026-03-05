@@ -553,7 +553,7 @@ export default function OperatorDashboard() {
                 className={demoMode ? 'bg-slate-900 hover:bg-slate-800' : ''}
                 onClick={() => setDemoMode(value => !value)}
               >
-                {demoMode ? 'Demo Mode On' : 'Demo Mode'}
+                {demoMode ? 'الوضع التجريبي: مفعل' : 'الوضع التجريبي'}
               </Button>
               <span
                 className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${
@@ -562,7 +562,7 @@ export default function OperatorDashboard() {
                     : 'bg-yellow-100 text-yellow-800'
                 }`}
               >
-                {dataSource === 'server' ? 'بيانات API' : 'وضع محلي (Fallback)'}
+                {dataSource === 'server' ? 'بيانات مباشرة' : 'وضع محلي احتياطي'}
               </span>
               <NotificationCenter fanId="operator-001" />
               <Button variant="outline" size="lg">
@@ -636,7 +636,7 @@ export default function OperatorDashboard() {
                 <p className="text-xs text-slate-500">من 100</p>
               </div>
               <div className="rounded-lg border border-emerald-200 bg-white p-4">
-                <p className="text-xs text-slate-600">الالتزام بـ SLA</p>
+                <p className="text-xs text-slate-600">الالتزام بمستوى الخدمة</p>
                 <p className="text-3xl font-bold text-emerald-700">{slaComplianceRate}%</p>
                 <p className="text-xs text-slate-500">انتظار ≤ {WAIT_TIME_SLA_MINUTES} دقائق</p>
               </div>
@@ -653,7 +653,7 @@ export default function OperatorDashboard() {
             </div>
 
             <div className="mb-4 rounded-lg border border-purple-200 bg-white p-4">
-              <p className="text-xs text-slate-600">محاكاة سريعة (What-If)</p>
+              <p className="text-xs text-slate-600">محاكاة سريعة (ماذا لو)</p>
               <p className="text-sm font-semibold text-slate-900 mt-1">
                 في حال تطبيق إعادة التوازن الآن: انخفاض ضغط متوقع {whatIfReduction}% وتقليل الانتظار حوالي {whatIfWaitReduction} دقائق.
               </p>
@@ -842,7 +842,7 @@ export default function OperatorDashboard() {
 
         <Card className="mb-8 shadow-md">
           <CardHeader>
-            <CardTitle>مؤشر الخطر اللحظي (Risk Index)</CardTitle>
+            <CardTitle>مؤشر الخطر اللحظي</CardTitle>
             <CardDescription>
               القراءة الموحدة للمخاطر حسب الكثافة، الانتظار، وسرعة تغير الحركة.
             </CardDescription>

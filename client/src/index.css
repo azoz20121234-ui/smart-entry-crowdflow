@@ -1,8 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Inter:wght@400;500;600&display=swap');
-
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -124,12 +122,21 @@
   }
   body {
     @apply bg-background text-foreground font-sans;
-    font-family: 'Inter', sans-serif;
+    direction: rtl;
+    text-align: right;
+    font-family: 'Tajawal', sans-serif;
   }
   
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Poppins', sans-serif;
-    font-weight: 700;
+    font-family: 'Cairo', sans-serif;
+    font-weight: 800;
+  }
+
+  input,
+  textarea,
+  select {
+    direction: rtl;
+    text-align: right;
   }
   button:not(:disabled),
   [role="button"]:not([aria-disabled="true"]),

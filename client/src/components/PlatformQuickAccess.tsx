@@ -69,10 +69,10 @@ export default function PlatformQuickAccess() {
     <>
       <Button
         type="button"
-        className="fixed bottom-4 left-4 z-50 h-11 rounded-full bg-slate-900 px-4 text-white shadow-lg hover:bg-slate-800 md:bottom-6 md:left-6"
+        className="fixed bottom-4 right-4 z-50 h-11 rounded-full bg-slate-900 px-4 text-white shadow-lg hover:bg-slate-800 md:bottom-6 md:right-6"
         onClick={() => setOpen(true)}
       >
-        <span className={cn("mr-2 inline-flex h-6 w-6 items-center justify-center rounded-md border", currentIconStyles.iconWrapper)}>
+        <span className={cn("ml-2 inline-flex h-6 w-6 items-center justify-center rounded-md border", currentIconStyles.iconWrapper)}>
           <CurrentIcon className={cn("h-3.5 w-3.5", currentIconStyles.iconColor)} />
         </span>
         <span className="hidden md:inline">تنقل سريع</span>

@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 const roleCards = [
   {
     path: '/fan',
-    title: 'Fan',
+    title: 'المشجع',
     subtitle: 'واجهة المشجع',
     description: 'التوجيه الفوري والتنبيهات المبسطة أثناء المباراة.',
     icon: Compass,
@@ -15,7 +15,7 @@ const roleCards = [
   },
   {
     path: '/operator',
-    title: 'Operator',
+    title: 'المنظم',
     subtitle: 'لوحة المنظم',
     description: 'تشغيل البوابات واتخاذ إجراءات مباشرة في الوقت الحقيقي.',
     icon: ShieldCheck,
@@ -25,7 +25,7 @@ const roleCards = [
   },
   {
     path: '/executive',
-    title: 'Management',
+    title: 'الإدارة',
     subtitle: 'اللوحة التنفيذية',
     description: 'حالة عامة سريعة: مطمئن، انتباه، أو تدخل مطلوب.',
     icon: Crown,
@@ -48,7 +48,7 @@ export default function Home() {
         <header className="mb-8 rounded-3xl border border-slate-200 bg-white/85 p-6 shadow-sm backdrop-blur md:mb-10 md:p-8">
           <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700">
             <Sparkles className="h-3.5 w-3.5 text-blue-700" />
-            Smart Entry & CrowdFlow Platform
+            منصة إدارة الحشود الذكية
           </div>
           <h1 className="text-right text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl md:text-5xl">
             بوابة دخول واحدة

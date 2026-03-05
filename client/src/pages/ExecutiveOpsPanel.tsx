@@ -179,7 +179,7 @@ export default function ExecutiveOpsPanel() {
               </Button>
               <div>
                 <h1 className="text-4xl font-bold">لوحة التحكم التنفيذية</h1>
-                <p className="text-blue-100 mt-2">نظام إدارة الحشود الذكي - Smart Entry & CrowdFlow</p>
+                <p className="text-blue-100 mt-2">منصة إدارة الحشود الذكية</p>
               </div>
             </div>
             <div className="text-right">
@@ -190,7 +190,7 @@ export default function ExecutiveOpsPanel() {
                   className={demoMode ? 'bg-slate-900 hover:bg-slate-800' : ''}
                   onClick={() => setDemoMode(value => !value)}
                 >
-                  {demoMode ? 'Demo Mode On' : 'Demo Mode'}
+                  {demoMode ? 'الوضع التجريبي: مفعل' : 'الوضع التجريبي'}
                 </Button>
               </div>
               <div className="mb-2">
@@ -212,7 +212,7 @@ export default function ExecutiveOpsPanel() {
                     : 'bg-yellow-100 text-yellow-800'
                 }`}
               >
-                {dataSource === 'server' ? 'بيانات API' : 'وضع محلي (Fallback)'}
+                {dataSource === 'server' ? 'بيانات مباشرة' : 'وضع محلي احتياطي'}
               </p>
               <p className="text-sm text-blue-100">آخر تحديث</p>
               <p className="text-lg font-semibold">{new Date().toLocaleTimeString('ar-SA')}</p>
@@ -240,7 +240,7 @@ export default function ExecutiveOpsPanel() {
         <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-3">
           <Card className="lg:col-span-2 border-2 border-emerald-200 bg-gradient-to-r from-emerald-50 to-cyan-50 shadow-md">
             <CardHeader>
-              <CardTitle>مؤشر جودة التجربة (Experience Score)</CardTitle>
+              <CardTitle>مؤشر جودة التجربة</CardTitle>
               <CardDescription>مؤشر موحّد لقراءة التجربة العامة بدون تفاصيل تشغيلية.</CardDescription>
             </CardHeader>
             <CardContent className="flex items-end justify-between">

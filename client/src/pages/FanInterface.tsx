@@ -242,13 +242,13 @@ export default function FanInterface() {
   const seatOrderTotal = selectedSeatOrder.priceSar * seatOrderQuantity;
   const personaLabel: Record<TicketPersona, string> = {
     standard: 'تذكرة عادية',
-    vip: 'تذكرة VIP',
+    vip: 'تذكرة كبار الشخصيات',
     family: 'تذكرة عائلية',
   };
   const personalizedJourney = useMemo(() => {
     if (ticketPersona === 'vip') {
       return {
-        gateAlert: `افتح البوابة VIP-${ticket.assignedGate} الآن لتفادي أي انتظار.`,
+        gateAlert: `استخدم بوابة كبار الشخصيات ${ticket.assignedGate} الآن لتفادي أي انتظار.`,
         nearbyOffer: 'عرض حصري قريب: ترقية مشروب مجانية عند الطلب من المقعد.',
       };
     }
@@ -477,9 +477,9 @@ export default function FanInterface() {
                 variant={demoMode ? 'default' : 'outline'}
                 size="sm"
                 className={demoMode ? 'bg-slate-900 hover:bg-slate-800' : ''}
-                onClick={() => setDemoMode(value => !value)}
+                  onClick={() => setDemoMode(value => !value)}
               >
-                {demoMode ? 'Demo Mode On' : 'Demo Mode'}
+                {demoMode ? 'الوضع التجريبي: مفعل' : 'الوضع التجريبي'}
               </Button>
               <span
                 className={`inline-flex rounded-full px-2 py-1 text-[11px] font-semibold ${
@@ -558,7 +558,7 @@ export default function FanInterface() {
 
             <div className="rounded-lg border border-slate-200 bg-white p-3">
               <p className="text-sm font-semibold text-slate-900">QR ديناميكي مرتبط بجهاز واحد</p>
-              <p className="mt-1 text-xs text-slate-600">لا صور ثابتة ولا PDF. الرمز يتغير تلقائيًا ويرتبط بهذا الجهاز فقط.</p>
+              <p className="mt-1 text-xs text-slate-600">لا صور ثابتة ولا ملفات ثابتة. الرمز يتغير تلقائيًا ويرتبط بهذا الجهاز فقط.</p>
               <p className="mt-2 rounded-md bg-slate-100 px-3 py-2 font-mono text-xs text-slate-800">
                 {ticketActivation.dynamicQrToken}
               </p>
