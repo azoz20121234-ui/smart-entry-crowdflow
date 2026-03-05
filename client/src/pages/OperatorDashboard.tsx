@@ -46,6 +46,14 @@ interface DecisionLogItem {
   impact: string;
 }
 
+interface ResourceAssignment {
+  gateId: number;
+  gateName: string;
+  currentStaff: number;
+  recommendedStaff: number;
+  delta: number;
+}
+
 type RiskLevel = 'low' | 'medium' | 'high';
 
 function queueStatusFromValue(queue: number): GateStatus['status'] {
@@ -190,6 +198,7 @@ export default function OperatorDashboard() {
   const [showRecommendations, setShowRecommendations] = useState(true);
   const [emergencyLaneOpen, setEmergencyLaneOpen] = useState(false);
   const [emergencyMode, setEmergencyMode] = useState(false);
+  const [demoMode, setDemoMode] = useState(false);
   const [broadcastMessage, setBroadcastMessage] = useState('يرجى استخدام البوابات 1 و3 لتقليل وقت الانتظار.');
   const [dataSource, setDataSource] = useState<'server' | 'local'>('local');
   const [decisionLog, setDecisionLog] = useState<DecisionLogItem[]>([
@@ -215,6 +224,14 @@ export default function OperatorDashboard() {
     let isActive = true;
 
     const updateSnapshot = async () => {
+      if (demoMode) {
+        setDataSource('local');
+        const nextGates = simulateLocalGates(gatesRef.current);
+        const nextAlerts = updateLocalAlerts(nextGates, alertsRef.current);
+        setGates(nextGates);
+        setAlerts(nextAlerts);
+        return;
+      }
       try {
         const state = await fetchOperatorState();
         if (!isActive) return;
@@ -238,7 +255,7 @@ export default function OperatorDashboard() {
       isActive = false;
       clearInterval(interval);
     };
-  }, []);
+  }, [demoMode]);
 
   useEffect(() => {
     if (!selectedGate && gates.length > 0) {
@@ -289,6 +306,27 @@ export default function OperatorDashboard() {
   const overallRiskLevel = riskLevelFromIndex(overallRiskIndex);
   const whatIfReduction = Math.min(45, Math.max(6, Math.round(rebalancePeopleCount / Math.max(1, totalQueued) * 100)));
   const whatIfWaitReduction = Math.max(1, Math.round((whatIfReduction / 100) * WAIT_TIME_SLA_MINUTES));
+  const collapseWarning =
+    overallRiskLevel === 'high' || forecastedCriticalIn15 >= 2 || pressureIndex >= 80;
+  const resourceAssignments: ResourceAssignment[] = gates.map(gate => {
+    const riskIndex = computeGateRiskIndex(gate);
+    const currentStaff = 4 + (gate.id % 2);
+    const recommendedStaff =
+      riskIndex >= 75 ? currentStaff + 2 : riskIndex >= 45 ? currentStaff + 1 : Math.max(3, currentStaff - 1);
+    return {
+      gateId: gate.id,
+      gateName: gate.name,
+      currentStaff,
+      recommendedStaff,
+      delta: recommendedStaff - currentStaff,
+    };
+  });
+  const totalStaffDelta = resourceAssignments.reduce((sum, row) => sum + row.delta, 0);
+  const historicalLearning = [
+    'في حدث مشابه، رفع الطاقم عند البوابات الحمراء بدقيقة مبكرة خفّض الذروة خلال 12 دقيقة.',
+    'إعادة توجيه 15% من التدفق للبوابات الأقل ضغطًا منعت انتقال الاختناق للممرات الداخلية.',
+    'الرسائل الموحدة (تطبيق + شاشات) رفعت التزام الجمهور بالمسارات البديلة بشكل واضح.',
+  ];
 
   const appendDecision = (action: string, impact: string) => {
     setDecisionLog(prev => [
@@ -447,6 +485,26 @@ export default function OperatorDashboard() {
     appendDecision('بث توجيه موحد', 'الرسالة وصلت للمشجعين عبر التطبيق والشاشات الرقمية.');
   };
 
+  const handleApplyResourceRedistribution = () => {
+    const redistributionAlert: SystemAlert = {
+      id: `resource-${Date.now()}`,
+      type: totalStaffDelta > 0 ? 'warning' : 'info',
+      message:
+        totalStaffDelta > 0
+          ? `تم رفع الموارد التشغيلية على البوابات الحرجة (+${totalStaffDelta} أفراد).`
+          : 'تمت إعادة توزيع الموارد داخليًا بدون زيادة إجمالي الطاقم.',
+      timestamp: new Date(),
+      actionRequired: false,
+    };
+    setAlerts(prev => prependAlert(prev, redistributionAlert));
+    appendDecision(
+      'إعادة توزيع الموارد',
+      totalStaffDelta > 0
+        ? `تعزيز الطاقم على نقاط الخطر (+${totalStaffDelta}).`
+        : 'إعادة تموضع الطاقم وفق مؤشر المخاطر.',
+    );
+  };
+
   // Generate historical data for selected gate
   const generateHistoricalData = () => {
     return Array.from({ length: 12 }, (_, i) => ({
@@ -489,6 +547,14 @@ export default function OperatorDashboard() {
               </div>
             </div>
             <div className="flex gap-3 items-center">
+              <Button
+                variant={demoMode ? 'default' : 'outline'}
+                size="sm"
+                className={demoMode ? 'bg-slate-900 hover:bg-slate-800' : ''}
+                onClick={() => setDemoMode(value => !value)}
+              >
+                {demoMode ? 'Demo Mode On' : 'Demo Mode'}
+              </Button>
               <span
                 className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${
                   dataSource === 'server'
@@ -541,6 +607,16 @@ export default function OperatorDashboard() {
 
       {/* Main Content */}
       <div className="container mx-auto px-4 py-8">
+        {collapseWarning && (
+          <Alert className="mb-8 border-2 border-rose-200 bg-rose-50">
+            <AlertCircle className="h-5 w-5 text-rose-700" />
+            <AlertDescription className="mr-3 text-rose-900">
+              <strong>تنبيه قبل الانهيار:</strong> المؤشرات الحالية تشير لاحتمال تصاعد اختناق خلال الدقائق القادمة.
+              يوصى بتفعيل إعادة التوازن وإعادة توزيع الموارد فورًا.
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* Competitive Control Center */}
         <Card className="mb-8 shadow-md border-2 border-indigo-200 bg-gradient-to-br from-indigo-50 to-cyan-50">
           <CardHeader>
@@ -622,6 +698,9 @@ export default function OperatorDashboard() {
               <Button className="bg-cyan-700 hover:bg-cyan-800" onClick={handleBroadcastGuidance}>
                 إرسال للتطبيق + الشاشات
               </Button>
+              <Button variant="outline" onClick={handleApplyResourceRedistribution}>
+                إعادة توزيع الموارد
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -657,11 +736,49 @@ export default function OperatorDashboard() {
                       <p className="text-xs text-slate-600 mt-1">
                         الأولوية: {item.urgency === 'high' ? 'عاجلة' : 'متوسطة'} - التنفيذ الآن يقلل ضغط الممرات مباشرة.
                       </p>
+                      <p className="text-xs font-semibold text-slate-700 mt-1">
+                        لماذا هذا القرار؟ لأن {fromGate?.name ?? `البوابة ${item.fromGateId}`} تتجاوز السعة الآمنة مقارنة بالبوابات البديلة.
+                      </p>
                     </div>
                   );
                 })}
               </div>
             )}
+          </CardContent>
+        </Card>
+
+        <Card className="mb-8 shadow-md border border-emerald-200">
+          <CardHeader>
+            <CardTitle>إعادة توزيع الموارد</CardTitle>
+            <CardDescription>
+              ضبط الطاقم حسب مؤشر الخطر لكل بوابة قبل وصولها للحالة الحرجة.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              {resourceAssignments.map(item => (
+                <div key={item.gateId} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <p className="font-semibold text-slate-900">{item.gateName}</p>
+                  <p className="text-xs text-slate-600 mt-1">
+                    الطاقم الحالي: {item.currentStaff} - المقترح: {item.recommendedStaff}
+                  </p>
+                  <p
+                    className={`text-xs font-semibold mt-1 ${
+                      item.delta > 0 ? 'text-amber-700' : item.delta < 0 ? 'text-blue-700' : 'text-emerald-700'
+                    }`}
+                  >
+                    {item.delta > 0
+                      ? `+${item.delta} تعزيز مطلوب`
+                      : item.delta < 0
+                        ? `${Math.abs(item.delta)} إعادة تموضع`
+                        : 'لا تغيير'}
+                  </p>
+                  <p className="text-[11px] text-slate-600 mt-1">
+                    لماذا؟ التوزيع يعتمد على مؤشر الخطر الحالي لكل بوابة.
+                  </p>
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
 
@@ -926,6 +1043,24 @@ export default function OperatorDashboard() {
             </CardContent>
           </Card>
         )}
+
+        <Card className="mt-8 shadow-md border border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50">
+          <CardHeader>
+            <CardTitle>التعلّم من الأحداث السابقة</CardTitle>
+            <CardDescription>
+              توصيات مبنية على ما نجح فعليًا في فعاليات سابقة مشابهة.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {historicalLearning.map((item, index) => (
+                <div key={index} className="rounded-lg border border-amber-200 bg-white p-3">
+                  <p className="text-sm font-semibold text-slate-800">{item}</p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
 
         <Card className="mt-8 shadow-md">
           <CardHeader>

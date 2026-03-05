@@ -26,6 +26,7 @@ function clamp(value: number, min: number, max: number): number {
 export default function ExecutiveOpsPanel() {
   const [, setLocation] = useLocation();
   const [eventMode, setEventMode] = useState<'match' | 'concert' | 'high-demand'>('match');
+  const [demoMode, setDemoMode] = useState(false);
   const [kpis, setKpis] = useState<ExecutiveKPI[]>([
     { label: 'إجمالي الحاضرين', value: 2100, unit: 'شخص', change: 5, trend: 'up' },
     { label: 'معدل الدخول', value: 180, unit: 'شخص/دقيقة', change: -3, trend: 'down' },
@@ -109,6 +110,11 @@ export default function ExecutiveOpsPanel() {
     let isActive = true;
 
     const syncExecutiveState = async () => {
+      if (demoMode) {
+        setDataSource('local');
+        applyFallbackSimulation();
+        return;
+      }
       try {
         const state = await fetchExecutiveState();
         if (!isActive) return;
@@ -131,7 +137,7 @@ export default function ExecutiveOpsPanel() {
       isActive = false;
       clearInterval(interval);
     };
-  }, []);
+  }, [demoMode]);
 
   const peakTimeEstimate = new Date(Date.now() + 45 * 60000);
   const clearTimeEstimate = new Date(Date.now() + 120 * 60000);
@@ -177,6 +183,16 @@ export default function ExecutiveOpsPanel() {
               </div>
             </div>
             <div className="text-right">
+              <div className="mb-2">
+                <Button
+                  variant={demoMode ? 'default' : 'outline'}
+                  size="sm"
+                  className={demoMode ? 'bg-slate-900 hover:bg-slate-800' : ''}
+                  onClick={() => setDemoMode(value => !value)}
+                >
+                  {demoMode ? 'Demo Mode On' : 'Demo Mode'}
+                </Button>
+              </div>
               <div className="mb-2">
                 <label className="text-xs text-blue-100">نوع الحدث</label>
                 <select

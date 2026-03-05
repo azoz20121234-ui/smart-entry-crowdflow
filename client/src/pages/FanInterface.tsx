@@ -1,12 +1,19 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'wouter';
 import {
+  Accessibility,
   AlertCircle,
   ArrowRight,
+  Award,
+  Baby,
+  BadgeCheck,
   Bell,
   CheckCircle2,
   Compass,
+  DoorOpen,
   Gift,
+  GraduationCap,
+  MapPin,
   Smartphone,
   Timer,
   Users,
@@ -70,6 +77,20 @@ export default function FanInterface() {
   const [showExtras, setShowExtras] = useState(false);
   const [dataSource, setDataSource] = useState<'server' | 'local'>('local');
   const [fanProfile, setFanProfile] = useState<FanProfile>('family');
+  const [firstVisitMode, setFirstVisitMode] = useState(true);
+  const [postEventExitMode, setPostEventExitMode] = useState(false);
+  const [exitPhase, setExitPhase] = useState<'hold' | 'release'>('hold');
+  const [demoMode, setDemoMode] = useState(false);
+  const [behaviorRewards, setBehaviorRewards] = useState({
+    points: 0,
+    discounts: 0,
+    priorityPasses: 0,
+  });
+  const [inclusionNeeds, setInclusionNeeds] = useState({
+    elderly: false,
+    accessibility: false,
+    children: false,
+  });
 
   const fanId = ticket.ticketId;
   const mood = useMemo(() => getFanMood(ticket.status), [ticket.status]);
@@ -104,6 +125,28 @@ export default function FanInterface() {
     }
     return 'تم الدخول بنجاح. استمتع بالفعالية.';
   }, [ticket.peopleAhead, ticket.status]);
+  const staggeredExitText =
+    exitPhase === 'hold'
+      ? 'قطاعك: انتظر 3 دقائق للحصول على خروج سلس وتجنب الازدحام عند المواقف.'
+      : 'قطاعك: الضوء الأخضر الآن. تحرك للمخرج الغربي عبر المسار الأزرق.';
+  const journeySteps = [
+    {
+      key: 'entry',
+      label: 'الدخول',
+      done: ticket.status === 'entered' || ticket.status === 'ready' || ticket.status === 'approaching',
+    },
+    {
+      key: 'move',
+      label: 'التنقل',
+      done: true,
+    },
+    {
+      key: 'exit',
+      label: 'الخروج',
+      done: postEventExitMode && exitPhase === 'release',
+    },
+  ];
+  const activeInclusionCount = Object.values(inclusionNeeds).filter(Boolean).length;
 
   const moodView = {
     excellent: {
@@ -146,6 +189,18 @@ export default function FanInterface() {
     let isActive = true;
 
     const syncFromApi = async () => {
+      if (demoMode) {
+        setDataSource('local');
+        setTicket(previous => {
+          const peopleAhead = Math.max(0, previous.peopleAhead - 1);
+          return {
+            ...previous,
+            peopleAhead,
+            status: getTicketStatus(peopleAhead),
+          };
+        });
+        return;
+      }
       try {
         const operatorState = await fetchOperatorState();
         if (!isActive || operatorState.gates.length === 0) return;
@@ -188,7 +243,7 @@ export default function FanInterface() {
       isActive = false;
       clearInterval(interval);
     };
-  }, []);
+  }, [demoMode]);
 
   const refreshWallet = async () => {
     const walletState = await fetchLoyaltyWallet(fanId);
@@ -219,6 +274,15 @@ export default function FanInterface() {
     setLoyaltyAction(null);
   };
 
+  const handleBehaviorReward = () => {
+    setBehaviorRewards(previous => ({
+      points: previous.points + 15,
+      discounts: previous.discounts + 1,
+      priorityPasses: previous.priorityPasses + (ticket.status === 'waiting' ? 0 : 1),
+    }));
+    setNotifications(items => ['تم احتساب مكافأة الالتزام بالتوجيه (+15 نقطة).', ...items].slice(0, 4));
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
       <div className="sticky top-0 z-10 border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur">
@@ -235,6 +299,14 @@ export default function FanInterface() {
               </div>
             </div>
             <div className="flex items-center gap-3">
+              <Button
+                variant={demoMode ? 'default' : 'outline'}
+                size="sm"
+                className={demoMode ? 'bg-slate-900 hover:bg-slate-800' : ''}
+                onClick={() => setDemoMode(value => !value)}
+              >
+                {demoMode ? 'Demo Mode On' : 'Demo Mode'}
+              </Button>
               <span
                 className={`inline-flex rounded-full px-2 py-1 text-[11px] font-semibold ${
                   dataSource === 'server' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
@@ -344,6 +416,175 @@ export default function FanInterface() {
                 تحديث الحالة
               </Button>
             </div>
+          </CardContent>
+        </Card>
+
+        <Card className="mb-6 shadow-sm border border-sky-200 bg-gradient-to-br from-sky-50 to-indigo-50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <GraduationCap className="h-5 w-5 text-sky-700" />
+              وضع الزائر لأول مرة
+            </CardTitle>
+            <CardDescription>إرشاد مبسّط خطوة بخطوة للزائر الجديد.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex items-center gap-3">
+              <Button
+                variant={firstVisitMode ? 'default' : 'outline'}
+                className={firstVisitMode ? 'bg-sky-700 hover:bg-sky-800' : ''}
+                onClick={() => setFirstVisitMode(value => !value)}
+              >
+                {firstVisitMode ? 'وضع الزائر الأول مفعل' : 'تفعيل وضع الزائر الأول'}
+              </Button>
+              {firstVisitMode && (
+                <span className="rounded-full bg-sky-100 px-2 py-1 text-xs font-semibold text-sky-700">
+                  إرشاد مبسط
+                </span>
+              )}
+            </div>
+            {firstVisitMode && (
+              <div className="rounded-lg border border-sky-200 bg-white p-3 text-sm text-slate-700">
+                <p className="font-semibold">خطوات سريعة:</p>
+                <p className="mt-1">1) اتبع الممر الأزرق نحو البوابة {ticket.assignedGate}</p>
+                <p>2) عند ظهور تنبيه التحرك، غادر مقعدك مباشرة</p>
+                <p>3) استخدم أقرب علامة {`"أنت هنا"`} لتأكيد الاتجاه</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="mb-6 shadow-sm border border-blue-200 bg-gradient-to-br from-blue-50 to-cyan-50">
+          <CardHeader>
+            <CardTitle>مسار اليوم الكامل</CardTitle>
+            <CardDescription>الدخول، التنقل، والخروج كرحلة واحدة ترافق المشجع.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-3 gap-2">
+              {journeySteps.map(step => (
+                <div
+                  key={step.key}
+                  className={`rounded-lg border p-3 text-center ${
+                    step.done ? 'border-emerald-200 bg-emerald-50' : 'border-slate-200 bg-white'
+                  }`}
+                >
+                  <p className={`text-sm font-semibold ${step.done ? 'text-emerald-700' : 'text-slate-500'}`}>
+                    {step.label}
+                  </p>
+                  <p className="text-xs mt-1">{step.done ? '✓ تم' : 'قيد التنفيذ'}</p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="mb-6 shadow-sm border border-emerald-200 bg-gradient-to-br from-emerald-50 to-teal-50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <DoorOpen className="h-5 w-5 text-emerald-700" />
+              إدارة الخروج بعد الحدث
+            </CardTitle>
+            <CardDescription>خروج متسلسل لتقليل الاختناق بعد نهاية الفعالية.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant={postEventExitMode ? 'default' : 'outline'}
+                className={postEventExitMode ? 'bg-emerald-700 hover:bg-emerald-800' : ''}
+                onClick={() => setPostEventExitMode(value => !value)}
+              >
+                {postEventExitMode ? 'وضع الخروج الذكي مفعل' : 'تفعيل الخروج الذكي'}
+              </Button>
+              {postEventExitMode && (
+                <>
+                  <Button variant="outline" onClick={() => setExitPhase('hold')}>
+                    انتظر الآن
+                  </Button>
+                  <Button className="bg-slate-900 hover:bg-slate-800" onClick={() => setExitPhase('release')}>
+                    إطلاق الخروج
+                  </Button>
+                </>
+              )}
+            </div>
+            {postEventExitMode && (
+              <div className="rounded-lg border border-emerald-200 bg-white p-3">
+                <p className="text-sm font-semibold text-emerald-800">{staggeredExitText}</p>
+                <p className="mt-2 text-xs text-slate-600 flex items-center gap-1">
+                  <MapPin className="h-3.5 w-3.5" />
+                  المسار المقترح: الممر الأزرق ثم المخرج الغربي.
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="mb-6 shadow-sm border border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Award className="h-5 w-5 text-amber-700" />
+              مكافآت سلوكية
+            </CardTitle>
+            <CardDescription>كلما اتبعت التوجيه وتجنبت الزحام تحصل على مكافآت إضافية.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="mb-3 grid grid-cols-3 gap-2 text-center">
+              <div className="rounded-lg border border-amber-200 bg-white p-3">
+                <p className="text-xs text-slate-600">نقاط</p>
+                <p className="text-2xl font-bold text-amber-700">{behaviorRewards.points}</p>
+              </div>
+              <div className="rounded-lg border border-amber-200 bg-white p-3">
+                <p className="text-xs text-slate-600">خصومات</p>
+                <p className="text-2xl font-bold text-amber-700">{behaviorRewards.discounts}</p>
+              </div>
+              <div className="rounded-lg border border-amber-200 bg-white p-3">
+                <p className="text-xs text-slate-600">أولوية</p>
+                <p className="text-2xl font-bold text-amber-700">{behaviorRewards.priorityPasses}</p>
+              </div>
+            </div>
+            <Button className="w-full bg-amber-700 hover:bg-amber-800" onClick={handleBehaviorReward}>
+              <BadgeCheck className="ml-2 h-4 w-4" />
+              تم اتباع التوجيه
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card className="mb-6 shadow-sm border border-violet-200 bg-gradient-to-br from-violet-50 to-fuchsia-50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Accessibility className="h-5 w-5 text-violet-700" />
+              مؤشرات شمولية
+            </CardTitle>
+            <CardDescription>دعم كبار السن وذوي الإعاقة والأطفال ضمن التوجيه الحالي.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              <Button
+                variant={inclusionNeeds.elderly ? 'default' : 'outline'}
+                className={inclusionNeeds.elderly ? 'bg-violet-700 hover:bg-violet-800' : ''}
+                onClick={() => setInclusionNeeds(state => ({ ...state, elderly: !state.elderly }))}
+              >
+                كبار السن
+              </Button>
+              <Button
+                variant={inclusionNeeds.accessibility ? 'default' : 'outline'}
+                className={inclusionNeeds.accessibility ? 'bg-violet-700 hover:bg-violet-800' : ''}
+                onClick={() => setInclusionNeeds(state => ({ ...state, accessibility: !state.accessibility }))}
+              >
+                ذوي الإعاقة
+              </Button>
+              <Button
+                variant={inclusionNeeds.children ? 'default' : 'outline'}
+                className={inclusionNeeds.children ? 'bg-violet-700 hover:bg-violet-800' : ''}
+                onClick={() => setInclusionNeeds(state => ({ ...state, children: !state.children }))}
+              >
+                <Baby className="ml-1 h-4 w-4" />
+                الأطفال
+              </Button>
+            </div>
+            <p className="mt-3 rounded-lg border border-violet-200 bg-white p-3 text-xs font-semibold text-violet-800">
+              {activeInclusionCount > 0
+                ? `تم تفعيل ${activeInclusionCount} مؤشر شمولية، وسيتم تفضيل المسارات الأكثر أمانًا وانسيابية.`
+                : 'يمكنك تفعيل مؤشرات الشمولية لتكييف التوجيه مع احتياجات الزائر.'}
+            </p>
           </CardContent>
         </Card>
 
