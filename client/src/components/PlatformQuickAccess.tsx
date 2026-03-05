@@ -19,6 +19,7 @@ import { toast } from "sonner";
 export default function PlatformQuickAccess() {
   const [open, setOpen] = useState(false);
   const [pathname, setLocation] = useLocation();
+  const basePath = import.meta.env.BASE_URL === "/" ? "" : import.meta.env.BASE_URL.replace(/\/$/, "");
 
   const currentRoute = useMemo(() => getRouteByPath(pathname), [pathname]);
   const routeGroups = useMemo(() => {
@@ -56,7 +57,9 @@ export default function PlatformQuickAccess() {
 
   const copyCurrentLink = async () => {
     try {
-      await navigator.clipboard.writeText(`${window.location.origin}${pathname}`);
+      const normalizedPath = pathname.startsWith("/") ? pathname : `/${pathname}`;
+      const shareUrl = new URL(`${basePath}${normalizedPath}`, window.location.origin).toString();
+      await navigator.clipboard.writeText(shareUrl);
       toast.success("تم نسخ رابط الصفحة الحالية");
     } catch {
       toast.error("تعذر نسخ الرابط");
