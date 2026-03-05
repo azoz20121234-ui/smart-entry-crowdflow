@@ -11,7 +11,7 @@
 
 import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
-import { CheckCircle2, Clock, AlertCircle, TrendingUp, Smartphone, ArrowRight } from 'lucide-react';
+import { CheckCircle2, Clock, AlertCircle, Smartphone, ArrowRight, Wallet, Gift } from 'lucide-react';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -19,6 +19,13 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { QueueTimer } from '@/components/QueueTimer';
 import { FlowAnalytics } from '@/components/FlowAnalytics';
 import { fetchOperatorState } from '@/lib/operatorApi';
+import {
+  claimDelayedExitReward,
+  claimEarlyArrivalReward,
+  fetchLoyaltyWallet,
+  spendLoyaltyTokens,
+} from '@/lib/loyaltyApi';
+import type { LoyaltyWalletResponse } from '@shared/loyalty';
 
 const STEP_INTERVAL_MS = 2000;
 
@@ -55,6 +62,8 @@ export default function FanInterface() {
   });
 
   const [notifications, setNotifications] = useState<string[]>([]);
+  const [wallet, setWallet] = useState<LoyaltyWalletResponse | null>(null);
+  const [loyaltyAction, setLoyaltyAction] = useState<'checkin' | 'checkout' | 'spend' | null>(null);
 
   const [flowData, setFlowData] = useState([
     { time: '12:00', flowRate: 35, estimatedWaitTime: 12 },
@@ -68,6 +77,20 @@ export default function FanInterface() {
 
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [dataSource, setDataSource] = useState<'server' | 'local'>('local');
+  const fanId = ticket.ticketId;
+
+  useEffect(() => {
+    let isActive = true;
+    const loadWallet = async () => {
+      const walletState = await fetchLoyaltyWallet(fanId);
+      if (!isActive) return;
+      setWallet(walletState);
+    };
+    loadWallet();
+    return () => {
+      isActive = false;
+    };
+  }, [fanId]);
 
   const getTicketStatus = (peopleAhead: number): FanTicket['status'] => {
     if (peopleAhead <= 0) return 'entered';
@@ -236,6 +259,35 @@ export default function FanInterface() {
     }
   };
 
+  const refreshWallet = async () => {
+    const walletState = await fetchLoyaltyWallet(fanId);
+    setWallet(walletState);
+  };
+
+  const handleEarlyArrivalReward = async () => {
+    setLoyaltyAction('checkin');
+    const result = await claimEarlyArrivalReward(fanId, 72);
+    setNotifications(prev => [result.message, ...prev].slice(0, 6));
+    await refreshWallet();
+    setLoyaltyAction(null);
+  };
+
+  const handleDelayedExitReward = async () => {
+    setLoyaltyAction('checkout');
+    const result = await claimDelayedExitReward(fanId, 24);
+    setNotifications(prev => [result.message, ...prev].slice(0, 6));
+    await refreshWallet();
+    setLoyaltyAction(null);
+  };
+
+  const handleSpendTokens = async () => {
+    setLoyaltyAction('spend');
+    const result = await spendLoyaltyTokens(fanId, 20, 'خصم فوري في المتجر داخل الملعب');
+    setNotifications(prev => [result.message, ...prev].slice(0, 6));
+    await refreshWallet();
+    setLoyaltyAction(null);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
       {/* Header with Back Button and Notifications */}
@@ -381,6 +433,78 @@ export default function FanInterface() {
                 <p className="text-sm text-slate-600 mt-1">
                   يتم تحديث معلومات الطابور والبوابات في الوقت الفعلي. احتفظ بهاتفك معك وراقب التطبيق.
                 </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* In-Game Loyalty Wallet */}
+        <Card className="shadow-md mb-8 border-2 border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Wallet className="w-5 h-5 text-amber-700" />
+              محفظة الولاء اللحظي (In-Game Tokens)
+            </CardTitle>
+            <CardDescription>
+              اكسب عملات رقمية عند الحضور المبكر والخروج الذكي، ثم استخدمها داخل الملعب.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="mb-6 rounded-xl bg-white/80 p-4 border border-amber-200">
+              <p className="text-sm text-slate-600 mb-1">الرصيد الحالي</p>
+              <p className="text-4xl font-bold text-amber-700">{wallet?.balance ?? 0}</p>
+              <p className="text-xs text-slate-600 mt-1">عملة ولاء رقمية</p>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-3 mb-6">
+              <Button
+                onClick={handleEarlyArrivalReward}
+                disabled={loyaltyAction !== null}
+                className="bg-blue-700 hover:bg-blue-800 h-11 text-sm"
+              >
+                <Gift className="w-4 h-4 mr-2" />
+                حضور مبكر +40
+              </Button>
+              <Button
+                onClick={handleDelayedExitReward}
+                disabled={loyaltyAction !== null}
+                className="bg-emerald-700 hover:bg-emerald-800 h-11 text-sm"
+              >
+                <Gift className="w-4 h-4 mr-2" />
+                خروج ذكي +30
+              </Button>
+              <Button
+                onClick={handleSpendTokens}
+                disabled={loyaltyAction !== null}
+                variant="outline"
+                className="h-11 text-sm border-amber-300"
+              >
+                استخدام 20 في المتجر
+              </Button>
+            </div>
+
+            <div className="rounded-xl bg-white/70 p-4 border border-amber-200">
+              <p className="text-sm font-semibold text-slate-900 mb-3">آخر الحركات</p>
+              <div className="space-y-2">
+                {(wallet?.entries ?? []).slice(0, 4).map(entry => (
+                  <div key={entry.id} className="flex items-start justify-between rounded-lg bg-white p-2 border border-slate-200">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900">{entry.title}</p>
+                      <p className="text-xs text-slate-600 mt-0.5">{entry.description}</p>
+                    </div>
+                    <div className="text-left">
+                      <p className={`text-sm font-bold ${entry.tokens >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                        {entry.tokens >= 0 ? `+${entry.tokens}` : entry.tokens}
+                      </p>
+                      <p className="text-[11px] text-slate-500">
+                        {new Date(entry.timestamp).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+                {(wallet?.entries?.length ?? 0) === 0 && (
+                  <p className="text-sm text-slate-500">لا توجد حركات بعد. ابدأ بالمكافآت الآن.</p>
+                )}
               </div>
             </div>
           </CardContent>

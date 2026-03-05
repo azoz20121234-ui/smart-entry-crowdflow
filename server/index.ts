@@ -13,6 +13,19 @@ function nowIso() {
   return new Date().toISOString();
 }
 
+function getBodyString(value: unknown, fallback = ""): string {
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : fallback;
+}
+
+function getBodyNumber(value: unknown, fallback = 0): number {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return fallback;
+}
+
 async function startServer() {
   const operatorDatabase = await OperatorDatabase.create();
   const app = express();
@@ -48,6 +61,34 @@ async function startServer() {
   app.post("/api/operator/tick", async (_req, res) => {
     await operatorDatabase.tickOperatorState();
     res.status(200).json({ success: true, generatedAt: nowIso() });
+  });
+
+  app.get("/api/loyalty/wallet", async (req, res) => {
+    const fanId = typeof req.query.fanId === "string" ? req.query.fanId : "fan-default";
+    const payload = await operatorDatabase.getLoyaltyWallet(fanId);
+    res.json(payload);
+  });
+
+  app.post("/api/loyalty/check-in", async (req, res) => {
+    const fanId = getBodyString(req.body?.fanId, "fan-default");
+    const minutesBeforeKickoff = getBodyNumber(req.body?.minutesBeforeKickoff, 0);
+    const payload = await operatorDatabase.claimEarlyArrivalReward(fanId, minutesBeforeKickoff);
+    res.json(payload);
+  });
+
+  app.post("/api/loyalty/check-out", async (req, res) => {
+    const fanId = getBodyString(req.body?.fanId, "fan-default");
+    const minutesAfterWhistle = getBodyNumber(req.body?.minutesAfterWhistle, 0);
+    const payload = await operatorDatabase.claimDelayedExitReward(fanId, minutesAfterWhistle);
+    res.json(payload);
+  });
+
+  app.post("/api/loyalty/spend", async (req, res) => {
+    const fanId = getBodyString(req.body?.fanId, "fan-default");
+    const tokens = getBodyNumber(req.body?.tokens, 0);
+    const description = getBodyString(req.body?.description, "شراء داخل الملعب");
+    const payload = await operatorDatabase.spendLoyaltyTokens(fanId, tokens, description);
+    res.json(payload);
   });
 
   // Serve static files from dist/public in production

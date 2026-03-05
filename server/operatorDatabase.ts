@@ -13,6 +13,12 @@ import {
   type OperatorStateResponse,
   type SystemAlert,
 } from "../shared/operator";
+import {
+  type LoyaltyClaimResult,
+  type LoyaltyEventType,
+  type LoyaltyLedgerEntry,
+  type LoyaltyWalletResponse,
+} from "../shared/loyalty";
 
 const require = createRequire(import.meta.url);
 const wasmPath = require.resolve("sql.js/dist/sql-wasm.wasm");
@@ -21,6 +27,10 @@ const DB_DIR = process.env.DATA_DIR
   : path.resolve(process.cwd(), "data");
 const DB_FILE = path.join(DB_DIR, "smart-entry.sqlite");
 const MAX_ALERTS = 25;
+const EARLY_ARRIVAL_REWARD_TOKENS = 40;
+const DELAYED_EXIT_REWARD_TOKENS = 30;
+const EARLY_ARRIVAL_THRESHOLD_MINUTES = 60;
+const DELAYED_EXIT_THRESHOLD_MINUTES = 20;
 
 function nowIso() {
   return new Date().toISOString();
@@ -73,14 +83,22 @@ export class OperatorDatabase {
       locateFile: () => wasmPath,
     });
 
+    let shouldPersist = false;
     await fs.mkdir(DB_DIR, { recursive: true });
     try {
       const fileData = await fs.readFile(DB_FILE);
       this.db = new this.sql.Database(new Uint8Array(fileData));
     } catch {
       this.db = new this.sql.Database();
-      this.createSchema();
-      this.seedData();
+      shouldPersist = true;
+    }
+
+    this.createSchema();
+    if (this.ensureSeedData()) {
+      shouldPersist = true;
+    }
+
+    if (shouldPersist) {
       await this.persist();
     }
   }
@@ -107,16 +125,41 @@ export class OperatorDatabase {
         timestamp TEXT NOT NULL,
         action_required INTEGER NOT NULL
       );
+
+      CREATE TABLE IF NOT EXISTS loyalty_wallets (
+        fan_id TEXT PRIMARY KEY,
+        token_balance INTEGER NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS loyalty_events (
+        id TEXT PRIMARY KEY,
+        fan_id TEXT NOT NULL,
+        event_type TEXT NOT NULL,
+        tokens INTEGER NOT NULL,
+        title TEXT NOT NULL,
+        description TEXT NOT NULL,
+        timestamp TEXT NOT NULL
+      );
     `);
   }
 
-  private seedData() {
+  private rowCount(tableName: string): number {
+    const rows = mapRows<{ total: number }>(
+      this.db,
+      `SELECT COUNT(*) AS total FROM ${tableName}`,
+    );
+    return Number(rows[0]?.total ?? 0);
+  }
+
+  private ensureSeedData(): boolean {
     const gates = createDefaultGates();
     const alerts = createDefaultAlerts();
-    const updatedAt = nowIso();
+    let changed = false;
 
-    this.db.run("BEGIN");
-    try {
+    if (this.rowCount("gates") === 0) {
+      const updatedAt = nowIso();
       gates.forEach(gate => {
         this.db.run(
           `
@@ -139,7 +182,10 @@ export class OperatorDatabase {
           ],
         );
       });
+      changed = true;
+    }
 
+    if (this.rowCount("alerts") === 0) {
       alerts.forEach(alert => {
         this.db.run(
           `
@@ -155,11 +201,10 @@ export class OperatorDatabase {
           ],
         );
       });
-      this.db.run("COMMIT");
-    } catch (error) {
-      this.db.run("ROLLBACK");
-      throw error;
+      changed = true;
     }
+
+    return changed;
   }
 
   private async persist() {
@@ -226,6 +271,329 @@ export class OperatorDatabase {
       timestamp: String(row.timestamp),
       actionRequired: Number(row.action_required) === 1,
     }));
+  }
+
+  private ensureWallet(fanId: string): boolean {
+    const rows = mapRows<{ fan_id: string }>(
+      this.db,
+      `SELECT fan_id FROM loyalty_wallets WHERE fan_id = '${fanId.replace(/'/g, "''")}' LIMIT 1`,
+    );
+    if (rows.length > 0) return false;
+    const ts = nowIso();
+    this.db.run(
+      `
+        INSERT INTO loyalty_wallets (fan_id, token_balance, created_at, updated_at)
+        VALUES (?, ?, ?, ?)
+      `,
+      [fanId, 0, ts, ts],
+    );
+    return true;
+  }
+
+  private getWalletBalance(fanId: string): number {
+    const rows = mapRows<{ token_balance: number }>(
+      this.db,
+      `
+        SELECT token_balance
+        FROM loyalty_wallets
+        WHERE fan_id = '${fanId.replace(/'/g, "''")}'
+        LIMIT 1
+      `,
+    );
+    return Number(rows[0]?.token_balance ?? 0);
+  }
+
+  private hasClaimedReward(fanId: string, eventType: LoyaltyEventType): boolean {
+    const rows = mapRows<{ total: number }>(
+      this.db,
+      `
+        SELECT COUNT(*) AS total
+        FROM loyalty_events
+        WHERE fan_id = '${fanId.replace(/'/g, "''")}'
+          AND event_type = '${eventType}'
+      `,
+    );
+    return Number(rows[0]?.total ?? 0) > 0;
+  }
+
+  private readLoyaltyEntries(fanId: string, limit = 20): LoyaltyLedgerEntry[] {
+    const rows = mapRows<{
+      id: string;
+      event_type: LoyaltyEventType;
+      tokens: number;
+      title: string;
+      description: string;
+      timestamp: string;
+    }>(
+      this.db,
+      `
+        SELECT id, event_type, tokens, title, description, timestamp
+        FROM loyalty_events
+        WHERE fan_id = '${fanId.replace(/'/g, "''")}'
+        ORDER BY timestamp DESC
+        LIMIT ${limit}
+      `,
+    );
+
+    return rows.map(row => ({
+      id: String(row.id),
+      eventType: row.event_type,
+      tokens: Number(row.tokens),
+      title: String(row.title),
+      description: String(row.description),
+      timestamp: String(row.timestamp),
+    }));
+  }
+
+  private appendLoyaltyEntry(
+    fanId: string,
+    eventType: LoyaltyEventType,
+    tokens: number,
+    title: string,
+    description: string,
+  ) {
+    this.db.run(
+      `
+        INSERT INTO loyalty_events (id, fan_id, event_type, tokens, title, description, timestamp)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `,
+      [
+        `loyalty-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+        fanId,
+        eventType,
+        tokens,
+        title,
+        description,
+        nowIso(),
+      ],
+    );
+  }
+
+  private updateWalletBalance(fanId: string, nextBalance: number) {
+    this.db.run(
+      `
+        UPDATE loyalty_wallets
+        SET token_balance = ?, updated_at = ?
+        WHERE fan_id = ?
+      `,
+      [nextBalance, nowIso(), fanId],
+    );
+  }
+
+  async getLoyaltyWallet(fanId: string): Promise<LoyaltyWalletResponse> {
+    if (this.ensureWallet(fanId)) {
+      await this.persist();
+    }
+    return {
+      source: "server",
+      generatedAt: nowIso(),
+      fanId,
+      balance: this.getWalletBalance(fanId),
+      entries: this.readLoyaltyEntries(fanId),
+    };
+  }
+
+  async claimEarlyArrivalReward(
+    fanId: string,
+    minutesBeforeKickoff: number,
+  ): Promise<LoyaltyClaimResult> {
+    let shouldPersist = false;
+    this.db.run("BEGIN");
+    try {
+      if (this.ensureWallet(fanId)) shouldPersist = true;
+
+      if (minutesBeforeKickoff < EARLY_ARRIVAL_THRESHOLD_MINUTES) {
+        this.db.run("COMMIT");
+        if (shouldPersist) await this.persist();
+        return {
+          source: "server",
+          generatedAt: nowIso(),
+          fanId,
+          eventType: "early_arrival",
+          awarded: false,
+          tokensAwarded: 0,
+          balance: this.getWalletBalance(fanId),
+          message: `المكافأة تتطلب حضورًا قبل المباراة بـ ${EARLY_ARRIVAL_THRESHOLD_MINUTES} دقيقة على الأقل.`,
+        };
+      }
+
+      if (this.hasClaimedReward(fanId, "early_arrival")) {
+        this.db.run("COMMIT");
+        if (shouldPersist) await this.persist();
+        return {
+          source: "server",
+          generatedAt: nowIso(),
+          fanId,
+          eventType: "early_arrival",
+          awarded: false,
+          tokensAwarded: 0,
+          balance: this.getWalletBalance(fanId),
+          message: "تم احتساب مكافأة الحضور المبكر مسبقًا.",
+        };
+      }
+
+      const nextBalance = this.getWalletBalance(fanId) + EARLY_ARRIVAL_REWARD_TOKENS;
+      this.updateWalletBalance(fanId, nextBalance);
+      this.appendLoyaltyEntry(
+        fanId,
+        "early_arrival",
+        EARLY_ARRIVAL_REWARD_TOKENS,
+        "مكافأة الحضور المبكر",
+        `حضرت قبل المباراة بـ ${minutesBeforeKickoff} دقيقة`,
+      );
+      shouldPersist = true;
+      this.db.run("COMMIT");
+
+      if (shouldPersist) await this.persist();
+      return {
+        source: "server",
+        generatedAt: nowIso(),
+        fanId,
+        eventType: "early_arrival",
+        awarded: true,
+        tokensAwarded: EARLY_ARRIVAL_REWARD_TOKENS,
+        balance: nextBalance,
+        message: "تمت إضافة مكافأة الحضور المبكر إلى محفظتك.",
+      };
+    } catch (error) {
+      this.db.run("ROLLBACK");
+      throw error;
+    }
+  }
+
+  async claimDelayedExitReward(
+    fanId: string,
+    minutesAfterWhistle: number,
+  ): Promise<LoyaltyClaimResult> {
+    let shouldPersist = false;
+    this.db.run("BEGIN");
+    try {
+      if (this.ensureWallet(fanId)) shouldPersist = true;
+
+      if (minutesAfterWhistle < DELAYED_EXIT_THRESHOLD_MINUTES) {
+        this.db.run("COMMIT");
+        if (shouldPersist) await this.persist();
+        return {
+          source: "server",
+          generatedAt: nowIso(),
+          fanId,
+          eventType: "delayed_exit",
+          awarded: false,
+          tokensAwarded: 0,
+          balance: this.getWalletBalance(fanId),
+          message: `المكافأة تتطلب الانتظار ${DELAYED_EXIT_THRESHOLD_MINUTES} دقيقة بعد صافرة النهاية.`,
+        };
+      }
+
+      if (this.hasClaimedReward(fanId, "delayed_exit")) {
+        this.db.run("COMMIT");
+        if (shouldPersist) await this.persist();
+        return {
+          source: "server",
+          generatedAt: nowIso(),
+          fanId,
+          eventType: "delayed_exit",
+          awarded: false,
+          tokensAwarded: 0,
+          balance: this.getWalletBalance(fanId),
+          message: "تم احتساب مكافأة الخروج الذكي مسبقًا.",
+        };
+      }
+
+      const nextBalance = this.getWalletBalance(fanId) + DELAYED_EXIT_REWARD_TOKENS;
+      this.updateWalletBalance(fanId, nextBalance);
+      this.appendLoyaltyEntry(
+        fanId,
+        "delayed_exit",
+        DELAYED_EXIT_REWARD_TOKENS,
+        "مكافأة الخروج الذكي",
+        `غادرت بعد صافرة النهاية بـ ${minutesAfterWhistle} دقيقة`,
+      );
+      shouldPersist = true;
+      this.db.run("COMMIT");
+
+      if (shouldPersist) await this.persist();
+      return {
+        source: "server",
+        generatedAt: nowIso(),
+        fanId,
+        eventType: "delayed_exit",
+        awarded: true,
+        tokensAwarded: DELAYED_EXIT_REWARD_TOKENS,
+        balance: nextBalance,
+        message: "تمت إضافة مكافأة الخروج الذكي إلى محفظتك.",
+      };
+    } catch (error) {
+      this.db.run("ROLLBACK");
+      throw error;
+    }
+  }
+
+  async spendLoyaltyTokens(
+    fanId: string,
+    tokens: number,
+    description: string,
+  ): Promise<LoyaltyClaimResult> {
+    if (tokens <= 0) {
+      return {
+        source: "server",
+        generatedAt: nowIso(),
+        fanId,
+        eventType: "spend",
+        awarded: false,
+        tokensAwarded: 0,
+        balance: this.getWalletBalance(fanId),
+        message: "عدد العملات المطلوب خصمها غير صالح.",
+      };
+    }
+
+    let shouldPersist = false;
+    this.db.run("BEGIN");
+    try {
+      if (this.ensureWallet(fanId)) shouldPersist = true;
+      const balance = this.getWalletBalance(fanId);
+      if (balance < tokens) {
+        this.db.run("COMMIT");
+        if (shouldPersist) await this.persist();
+        return {
+          source: "server",
+          generatedAt: nowIso(),
+          fanId,
+          eventType: "spend",
+          awarded: false,
+          tokensAwarded: 0,
+          balance,
+          message: "رصيدك غير كافٍ لإتمام العملية.",
+        };
+      }
+
+      const nextBalance = balance - tokens;
+      this.updateWalletBalance(fanId, nextBalance);
+      this.appendLoyaltyEntry(
+        fanId,
+        "spend",
+        -tokens,
+        "استخدام العملات داخل الملعب",
+        description,
+      );
+      shouldPersist = true;
+      this.db.run("COMMIT");
+
+      if (shouldPersist) await this.persist();
+      return {
+        source: "server",
+        generatedAt: nowIso(),
+        fanId,
+        eventType: "spend",
+        awarded: true,
+        tokensAwarded: -tokens,
+        balance: nextBalance,
+        message: "تم خصم العملات بنجاح.",
+      };
+    } catch (error) {
+      this.db.run("ROLLBACK");
+      throw error;
+    }
   }
 
   async getOperatorState(): Promise<OperatorStateResponse> {
