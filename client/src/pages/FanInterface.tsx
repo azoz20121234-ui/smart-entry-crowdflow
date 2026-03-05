@@ -6,6 +6,7 @@
  * - Real-time queue position updates
  * - Adaptive gate assignment based on crowd flow
  * - Smooth animations for status changes
+ * - Advanced QueueTimer with precise time estimation
  */
 
 import { useState, useEffect } from 'react';
@@ -13,6 +14,8 @@ import { CheckCircle2, Clock, AlertCircle, TrendingUp, Smartphone } from 'lucide
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { QueueTimer } from '@/components/QueueTimer';
+import { FlowAnalytics } from '@/components/FlowAnalytics';
 
 interface FanTicket {
   ticketId: string;
@@ -46,6 +49,18 @@ export default function FanInterface() {
   });
 
   const [notifications, setNotifications] = useState<string[]>([]);
+
+  const [flowData, setFlowData] = useState([
+    { time: '12:00', flowRate: 35, estimatedWaitTime: 12 },
+    { time: '12:05', flowRate: 38, estimatedWaitTime: 11 },
+    { time: '12:10', flowRate: 42, estimatedWaitTime: 9 },
+    { time: '12:15', flowRate: 45, estimatedWaitTime: 8 },
+    { time: '12:20', flowRate: 43, estimatedWaitTime: 8 },
+    { time: '12:25', flowRate: 48, estimatedWaitTime: 7 },
+    { time: '12:30', flowRate: 50, estimatedWaitTime: 6 },
+  ]);
+
+  const [showAnalytics, setShowAnalytics] = useState(false);
 
   // Simulate real-time updates
   useEffect(() => {
@@ -88,6 +103,23 @@ export default function FanInterface() {
         averageWaitTime: Math.max(1, prev.averageWaitTime + (Math.random() - 0.5) * 0.5),
         currentLoad: Math.max(1500, Math.min(2500, prev.currentLoad + (Math.random() - 0.5) * 50)),
       }));
+
+      // Update flow data
+      setFlowData(prev => {
+        const newFlowRate = Math.max(30, Math.min(55, prev[prev.length - 1].flowRate + (Math.random() - 0.5) * 4));
+        const newWaitTime = Math.max(5, Math.min(15, 350 / newFlowRate));
+        const lastTime = prev[prev.length - 1].time;
+        const [hours, minutes] = lastTime.split(':').map(Number);
+        const newMinutes = (minutes + 5) % 60;
+        const newHours = minutes + 5 >= 60 ? hours + 1 : hours;
+        const newTime = `${String(newHours).padStart(2, '0')}:${String(newMinutes).padStart(2, '0')}`;
+
+        return [...prev.slice(1), {
+          time: newTime,
+          flowRate: newFlowRate,
+          estimatedWaitTime: newWaitTime,
+        }];
+      });
     }, 2000);
 
     return () => clearInterval(interval);
@@ -173,8 +205,19 @@ export default function FanInterface() {
           </div>
         )}
 
-        {/* Main Ticket Card */}
-        <Card className={`mb-8 border-2 shadow-lg transition-all ${getStatusColor(ticket.status)}`}>
+        {/* QueueTimer Component - Advanced Time Estimation */}
+        <div className="mb-8">
+          <QueueTimer
+            queuePosition={ticket.queueNumber}
+            peopleAhead={ticket.peopleAhead}
+            gateFlowRate={Math.round(flowData[flowData.length - 1].flowRate)}
+            currentlyServing={gateInfo.currentlyServing}
+            nextUp={gateInfo.nextUp}
+          />
+        </div>
+
+        {/* Ticket Details Card */}
+        <Card className={`mb-8 border-2 shadow-lg ${getStatusColor(ticket.status)}`}>
           <CardContent className="pt-8">
             {/* Status Section */}
             <div className="text-center mb-8">
@@ -183,20 +226,6 @@ export default function FanInterface() {
               </div>
               <h2 className="text-3xl font-bold text-slate-900 mb-2">{getStatusText(ticket.status)}</h2>
               <p className="text-slate-600">رقم التذكرة: {ticket.ticketId}</p>
-            </div>
-
-            {/* Queue Position - Large Display */}
-            <div className="bg-white rounded-lg p-8 mb-8 border-2 border-slate-200">
-              <div className="grid grid-cols-2 gap-8">
-                <div className="text-center">
-                  <p className="text-sm text-slate-600 mb-2">رقم دورك</p>
-                  <p className="text-6xl font-bold text-blue-700">{ticket.queueNumber}</p>
-                </div>
-                <div className="text-center border-l-2 border-slate-200">
-                  <p className="text-sm text-slate-600 mb-2">عدد الأشخاص أمامك</p>
-                  <p className="text-6xl font-bold text-orange-600">{ticket.peopleAhead}</p>
-                </div>
-              </div>
             </div>
 
             {/* Ticket Details */}
@@ -208,14 +237,6 @@ export default function FanInterface() {
               <div className="bg-slate-50 rounded-lg p-4">
                 <p className="text-xs text-slate-600 mb-1">البوابة المخصصة</p>
                 <p className="text-lg font-semibold text-blue-700">البوابة {ticket.assignedGate}</p>
-              </div>
-              <div className="bg-slate-50 rounded-lg p-4">
-                <p className="text-xs text-slate-600 mb-1">وقت الانتظار المتوقع</p>
-                <p className="text-lg font-semibold text-slate-900">{ticket.estimatedWaitTime.toFixed(0)} دقائق</p>
-              </div>
-              <div className="bg-slate-50 rounded-lg p-4">
-                <p className="text-xs text-slate-600 mb-1">حالة النظام</p>
-                <p className="text-lg font-semibold text-green-600">متاح</p>
               </div>
             </div>
 
@@ -232,33 +253,11 @@ export default function FanInterface() {
                 />
               </div>
             </div>
-
-            {/* Gate Info */}
-            <div className="bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg p-6 border border-blue-200">
-              <h3 className="font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                <TrendingUp className="w-5 h-5 text-blue-600" />
-                معلومات البوابة {ticket.assignedGate}
-              </h3>
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <p className="text-xs text-slate-600 mb-1">يتم خدمة</p>
-                  <p className="text-2xl font-bold text-blue-700">{gateInfo.currentlyServing}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-slate-600 mb-1">الدور التالي</p>
-                  <p className="text-2xl font-bold text-green-700">{gateInfo.nextUp}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-slate-600 mb-1">متوسط الانتظار</p>
-                  <p className="text-2xl font-bold text-orange-600">{gateInfo.averageWaitTime.toFixed(0)} دقائق</p>
-                </div>
-              </div>
-            </div>
           </CardContent>
         </Card>
 
         {/* Information Section */}
-        <Card className="shadow-md">
+        <Card className="shadow-md mb-8">
           <CardHeader>
             <CardTitle>معلومات مهمة</CardTitle>
           </CardHeader>
@@ -280,9 +279,9 @@ export default function FanInterface() {
                 <CheckCircle2 className="w-6 h-6 text-green-600" />
               </div>
               <div>
-                <h4 className="font-semibold text-slate-900">الطابور الافتراضي</h4>
+                <h4 className="font-semibold text-slate-900">الطابور الافتراضي الذكي</h4>
                 <p className="text-sm text-slate-600 mt-1">
-                  لا تحتاج للوقوف في طابور مزدحم. ابق في مكانك وتابع دورك عبر هذا التطبيق. سيتم إخبارك عندما يقترب دورك.
+                  نظام متقدم يحسب وقت الانتظار بدقة بناءً على معدل التدفق الفعلي والبيانات التاريخية.
                 </p>
               </div>
             </div>
@@ -300,6 +299,29 @@ export default function FanInterface() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Analytics Toggle and Display */}
+        <div className="mb-8">
+          <Button
+            onClick={() => setShowAnalytics(!showAnalytics)}
+            variant={showAnalytics ? 'default' : 'outline'}
+            className="w-full h-12 text-base"
+          >
+            {showAnalytics ? 'إخفاء تحليلات التدفق' : 'عرض تحليلات التدفق'}
+          </Button>
+        </div>
+
+        {/* Flow Analytics */}
+        {showAnalytics && (
+          <div className="mb-8">
+            <FlowAnalytics
+              data={flowData}
+              currentFlowRate={Math.round(flowData[flowData.length - 1].flowRate)}
+              averageFlowRate={Math.round(flowData.reduce((sum, d) => sum + d.flowRate, 0) / flowData.length)}
+              peakFlowRate={Math.round(Math.max(...flowData.map(d => d.flowRate)))}
+            />
+          </div>
+        )}
 
         {/* Action Buttons */}
         <div className="mt-8 flex gap-4">
