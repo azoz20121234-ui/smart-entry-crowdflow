@@ -9,6 +9,8 @@ import AdminDashboard from "./pages/AdminDashboard";
 import FanInterface from "./pages/FanInterface";
 import OperatorDashboard from "./pages/OperatorDashboard";
 import ExecutiveOpsPanel from "./pages/ExecutiveOpsPanel";
+import FanNavigation from "./pages/FanNavigation";
+import CrowdDNAAnalytics from "./pages/CrowdDNAAnalytics";
 
 
 function Router() {
@@ -19,6 +21,8 @@ function Router() {
       <Route path="/fan" component={FanInterface} />
       <Route path="/operator" component={OperatorDashboard} />
       <Route path="/executive" component={ExecutiveOpsPanel} />
+      <Route path="/fan-navigation" component={FanNavigation} />
+      <Route path="/crowd-dna" component={CrowdDNAAnalytics} />
       <Route path="/404" component={NotFound} />
       {/* Final fallback route */}
       <Route component={NotFound} />

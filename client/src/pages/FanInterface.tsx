@@ -10,7 +10,8 @@
  */
 
 import { useState, useEffect } from 'react';
-import { CheckCircle2, Clock, AlertCircle, TrendingUp, Smartphone } from 'lucide-react';
+import { useLocation } from 'wouter';
+import { CheckCircle2, Clock, AlertCircle, TrendingUp, Smartphone, ArrowRight } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -29,6 +30,7 @@ interface FanTicket {
 }
 
 export default function FanInterface() {
+  const [, setLocation] = useLocation();
   const [ticket, setTicket] = useState<FanTicket>({
     ticketId: 'TKT-2024-156789',
     fanName: 'محمد أحمد',
@@ -172,11 +174,19 @@ export default function FanInterface() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      {/* Header */}
+      {/* Header with Back Button */}
       <div className="bg-white border-b border-slate-200 shadow-sm sticky top-0 z-10">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-slate-900 hover:bg-slate-100"
+                onClick={() => setLocation('/')}
+              >
+                <ArrowRight className="w-6 h-6" />
+              </Button>
               <Smartphone className="w-8 h-8 text-blue-700" />
               <div>
                 <h1 className="text-2xl font-bold text-slate-900">تذكرتك</h1>
@@ -325,7 +335,13 @@ export default function FanInterface() {
 
         {/* Action Buttons */}
         <div className="mt-8 flex gap-4">
-          <Button className="flex-1 bg-blue-700 hover:bg-blue-800 h-12 text-base">
+          <Button 
+            className="flex-1 bg-blue-700 hover:bg-blue-800 h-12 text-base"
+            onClick={() => setLocation('/fan-navigation')}
+          >
+            التوجيه المكاني
+          </Button>
+          <Button className="flex-1 bg-green-700 hover:bg-green-800 h-12 text-base">
             تحديث البيانات
           </Button>
           <Button variant="outline" className="flex-1 h-12 text-base">
