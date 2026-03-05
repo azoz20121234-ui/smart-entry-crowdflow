@@ -12,6 +12,7 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { CheckCircle2, Clock, AlertCircle, TrendingUp, Smartphone, ArrowRight } from 'lucide-react';
+import { NotificationCenter } from '@/components/NotificationCenter';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -174,7 +175,7 @@ export default function FanInterface() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      {/* Header with Back Button */}
+      {/* Header with Back Button and Notifications */}
       <div className="bg-white border-b border-slate-200 shadow-sm sticky top-0 z-10">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
@@ -193,9 +194,12 @@ export default function FanInterface() {
                 <p className="text-sm text-slate-600">Smart Entry & CrowdFlow</p>
               </div>
             </div>
-            <div className="text-right">
-              <p className="text-sm text-slate-600">مرحباً بك</p>
-              <p className="text-lg font-semibold text-slate-900">{ticket.fanName}</p>
+            <div className="flex items-center gap-4">
+              <NotificationCenter fanId={ticket.ticketId} />
+              <div className="text-right">
+                <p className="text-sm text-slate-600">مرحباً بك</p>
+                <p className="text-lg font-semibold text-slate-900">{ticket.fanName}</p>
+              </div>
             </div>
           </div>
         </div>

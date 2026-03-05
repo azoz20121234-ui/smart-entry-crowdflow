@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { VirtualQueueAnalytics } from '@/components/VirtualQueueAnalytics';
+import { NotificationCenter } from '@/components/NotificationCenter';
 
 interface GateStatus {
   id: number;
@@ -208,11 +209,8 @@ export default function OperatorDashboard() {
               <h1 className="text-4xl font-bold text-slate-900">لوحة تحكم المنظمين</h1>
               <p className="text-slate-600 mt-2">إدارة الطوابير الافتراضية والبوابات</p>
             </div>
-            <div className="flex gap-3">
-              <Button variant="outline" size="lg">
-                <Bell className="w-5 h-5 mr-2" />
-                الإشعارات
-              </Button>
+            <div className="flex gap-3 items-center">
+              <NotificationCenter fanId="operator-001" />
               <Button variant="outline" size="lg">
                 <Settings className="w-5 h-5 mr-2" />
                 الإعدادات
