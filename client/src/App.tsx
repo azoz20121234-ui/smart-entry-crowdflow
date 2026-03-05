@@ -4,6 +4,7 @@ import NotFound from "@/pages/NotFound";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import PlatformQuickAccess from "./components/PlatformQuickAccess";
+import SiteFooter from "./components/SiteFooter";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
 import AdminDashboard from "./pages/AdminDashboard";
@@ -43,6 +44,7 @@ function App() {
           <Toaster />
           <PlatformQuickAccess />
           <Router />
+          <SiteFooter />
         </TooltipProvider>
       </ThemeProvider>
     </ErrorBoundary>
