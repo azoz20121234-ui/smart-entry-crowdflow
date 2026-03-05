@@ -12,6 +12,7 @@ import ExecutiveOpsPanel from "./pages/ExecutiveOpsPanel";
 import FanNavigation from "./pages/FanNavigation";
 import CrowdDNAAnalytics from "./pages/CrowdDNAAnalytics";
 import StrategicDashboard from "./pages/StrategicDashboard";
+import SystemAdmin from "./pages/SystemAdmin";
 
 
 function Router() {
@@ -25,6 +26,7 @@ function Router() {
       <Route path="/fan-navigation" component={FanNavigation} />
       <Route path="/crowd-dna" component={CrowdDNAAnalytics} />
       <Route path="/strategic" component={StrategicDashboard} />
+      <Route path="/system-admin" component={SystemAdmin} />
       <Route path="/404" component={NotFound} />
       {/* Final fallback route */}
       <Route component={NotFound} />
