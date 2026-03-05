@@ -5,52 +5,104 @@
  * Design: Modern Dynamic with hero imagery and feature highlights
  */
 
-import { useState } from 'react';
-import { ArrowRight, Zap, Users, TrendingUp, Clock, Shield, Smartphone } from 'lucide-react';
+import { ArrowRight, Menu, Zap, Users, TrendingUp, Clock, Shield, Smartphone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet';
+import { platformRoutes } from '@/lib/platformRoutes';
 import { useLocation } from 'wouter';
 
 const HERO_IMAGE = 'https://d2xsxph8kpxj0f.cloudfront.net/310519663404606112/msTvYaYH3JmEVJtbca6DuT/hero-stadium-nrZFzy2yJvLEixy6dd36tY.webp';
-const DASHBOARD_IMAGE = 'https://d2xsxph8kpxj0f.cloudfront.net/310519663404606112/msTvYaYH3JmEVJtbca6DuT/dashboard-abstract-J8mtKkTbBGugUmxDcjheG2.webp';
-const CROWD_FLOW_IMAGE = 'https://d2xsxph8kpxj0f.cloudfront.net/310519663404606112/msTvYaYH3JmEVJtbca6DuT/crowd-flow-pattern-9sp8A7KNTnkkV9A6qwrJYj.webp';
 
 export default function Home() {
   const [, setLocation] = useLocation();
+  const featuredRoutes = platformRoutes.filter(route => route.featured && route.path !== '/');
+  const homeMenuRoutes = featuredRoutes.slice(0, 5);
+
+  const scrollToRoleAccess = () => {
+    document.getElementById('role-access')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   return (
     <div className="min-h-screen bg-white">
       {/* Navigation */}
       <nav className="sticky top-0 z-50 bg-white border-b border-slate-200 shadow-sm">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
+        <div className="container mx-auto px-4 py-4 flex justify-between items-center gap-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-gradient-to-br from-blue-700 to-cyan-600 rounded-lg flex items-center justify-center">
               <Zap className="w-6 h-6 text-white" />
             </div>
             <h1 className="text-2xl font-bold text-slate-900">Smart Entry</h1>
           </div>
-          <div className="flex gap-4">
-            <Button variant="ghost" onClick={() => setLocation('/admin')}>
-              لوحة التحكم
-            </Button>
-            <Button variant="ghost" onClick={() => setLocation('/operator')}>
-              لوحة المنظمين
-            </Button>
-            <Button variant="ghost" onClick={() => setLocation('/system-admin')}>
-              إدارة النظام
-            </Button>
-            <Button variant="ghost" onClick={() => setLocation('/innovative')}>
-              الميزات الابتكارية
-            </Button>
-            <Button variant="ghost" onClick={() => setLocation('/analytics')}>
+
+          <div className="hidden lg:flex items-center gap-1">
+            {homeMenuRoutes.map(route => (
+              <Button
+                key={route.path}
+                variant="ghost"
+                className="text-slate-700"
+                onClick={() => setLocation(route.path)}
+              >
+                {route.title}
+              </Button>
+            ))}
+          </div>
+
+          <div className="hidden md:flex items-center gap-2">
+            <Button variant="outline" onClick={() => setLocation('/analytics')}>
               لوحة التحليلات
-            </Button>
-            <Button variant="ghost" onClick={() => setLocation('/fan')}>
-              تطبيق المشجع
             </Button>
             <Button className="bg-blue-700 hover:bg-blue-800" onClick={() => setLocation('/operator')}>
               ابدأ الآن
             </Button>
+          </div>
+
+          <div className="md:hidden">
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button variant="outline" size="icon" aria-label="فتح قائمة التنقل">
+                  <Menu className="w-5 h-5" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="right" className="w-[88%] max-w-sm">
+                <SheetHeader>
+                  <SheetTitle>التنقل داخل المنصة</SheetTitle>
+                  <SheetDescription>
+                    اختر الوجهة المناسبة لدورك للوصول إلى الأدوات بسرعة.
+                  </SheetDescription>
+                </SheetHeader>
+                <div className="px-4 pb-6 pt-2 space-y-2 overflow-y-auto">
+                  {featuredRoutes.map(route => {
+                    const Icon = route.icon;
+                    return (
+                      <button
+                        key={route.path}
+                        type="button"
+                        className="w-full rounded-xl border border-slate-200 p-3 text-right hover:bg-slate-50 transition-colors"
+                        onClick={() => setLocation(route.path)}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="mt-1 rounded-lg bg-blue-50 p-2">
+                            <Icon className="w-4 h-4 text-blue-700" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-semibold text-slate-900">{route.title}</p>
+                            <p className="text-xs text-slate-600 mt-1">{route.description}</p>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </SheetContent>
+            </Sheet>
           </div>
         </div>
       </nav>
@@ -74,7 +126,11 @@ export default function Home() {
             منصة تشغيل ذكية تدمج التذاكر الرقمية مع إدارة الحشود الديناميكية لتحسين تجربة الجماهير وكفاءة التشغيل
           </p>
           <div className="flex gap-4 justify-center flex-wrap">
-            <Button size="lg" className="bg-white text-blue-700 hover:bg-slate-100 text-base h-12">
+            <Button
+              size="lg"
+              className="bg-white text-blue-700 hover:bg-slate-100 text-base h-12"
+              onClick={scrollToRoleAccess}
+            >
               اكتشف المزيد
               <ArrowRight className="w-5 h-5 mr-2" />
             </Button>
@@ -86,6 +142,48 @@ export default function Home() {
             >
               جرب لوحة التحكم
             </Button>
+          </div>
+        </div>
+      </section>
+
+      {/* Role Access */}
+      <section id="role-access" className="py-16 bg-slate-50 border-y border-slate-200">
+        <div className="container mx-auto px-4">
+          <div className="mb-10 flex flex-col gap-3 text-center">
+            <p className="inline-flex self-center rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-800">
+              توزيع الوصول حسب الدور
+            </p>
+            <h2 className="text-3xl font-bold text-slate-900">اختر بوابة عملك داخل المنصة</h2>
+            <p className="text-slate-600 max-w-3xl mx-auto">
+              تنظيم الواجهة حسب نوع المستخدم يقلل وقت الوصول إلى الأدوات التشغيلية والتحليلية ويُسرّع اتخاذ القرار.
+            </p>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {featuredRoutes.map(route => {
+              const Icon = route.icon;
+              return (
+                <button
+                  key={route.path}
+                  type="button"
+                  className="group rounded-2xl border border-slate-200 bg-white p-5 text-right shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
+                  onClick={() => setLocation(route.path)}
+                >
+                  <div className="mb-4 inline-flex rounded-xl bg-blue-50 p-3">
+                    <Icon className="h-5 w-5 text-blue-700" />
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-900">{route.title}</h3>
+                  <p className="mt-2 text-sm text-slate-600">{route.description}</p>
+                  <div className="mt-4 flex items-center justify-between">
+                    <span className="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-700">
+                      {route.category}
+                    </span>
+                    <span className="text-xs font-semibold text-blue-700 group-hover:text-blue-800">
+                      انتقال سريع
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
           </div>
         </div>
       </section>
