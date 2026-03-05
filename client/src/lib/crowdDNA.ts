@@ -42,6 +42,39 @@ export interface BehaviorProfile {
   historicalAccuracy: number;
 }
 
+export interface CrowdBehaviorSegment {
+  id: string;
+  label: string;
+  share: number;
+  description: string;
+  preferredTouchpoint: string;
+  sensitivity: 'high' | 'medium' | 'low';
+}
+
+export interface CrowdForecastPoint {
+  minute: number;
+  density: number;
+  riskLevel: 'safe' | 'caution' | 'danger' | 'critical';
+  actionWindow: string;
+}
+
+export interface CrowdDNAWarning {
+  severity: 'high' | 'medium' | 'low';
+  title: string;
+  description: string;
+  action: string;
+}
+
+export interface CrowdDNAPlaybook {
+  warnings: CrowdDNAWarning[];
+  staffByGate: Array<{
+    gateId: number;
+    staff: number;
+    priority: 'high' | 'medium' | 'normal';
+  }>;
+  recommendedAnnouncements: string[];
+}
+
 /**
  * Crowd DNA Engine
  * Analyzes and learns from historical crowd behavior
@@ -373,6 +406,219 @@ export class CrowdDNAEngine {
       ...profile,
       avgCrowdDensity: Math.min(100, Math.round(adjustedDensity)),
       recommendedCapacity: Math.ceil((adjustedDensity / 100) * 2500),
+    };
+  }
+
+  private toRiskLevel(density: number): CrowdForecastPoint['riskLevel'] {
+    if (density >= 85) return 'critical';
+    if (density >= 70) return 'danger';
+    if (density >= 50) return 'caution';
+    return 'safe';
+  }
+
+  getBehaviorSegments(matchType: string): CrowdBehaviorSegment[] {
+    const byType: Record<string, CrowdBehaviorSegment[]> = {
+      derby: [
+        {
+          id: 'ultra',
+          label: 'مشجعون متحمسون',
+          share: 38,
+          description: 'حركة جماعية سريعة وتمركز مبكر قرب البوابات الرئيسية.',
+          preferredTouchpoint: 'البوابات 2 و4',
+          sensitivity: 'high',
+        },
+        {
+          id: 'family',
+          label: 'عائلات',
+          share: 27,
+          description: 'تفضّل مسارات آمنة ومرافق قريبة وأوقات دخول مبكرة.',
+          preferredTouchpoint: 'البوابتان 1 و3',
+          sensitivity: 'medium',
+        },
+        {
+          id: 'late-arrival',
+          label: 'وصول متأخر',
+          share: 35,
+          description: 'يتحركون خلال آخر 20 دقيقة قبل البداية ويضغطون على الفحص السريع.',
+          preferredTouchpoint: 'الممر الأوسط',
+          sensitivity: 'high',
+        },
+      ],
+      cup: [
+        {
+          id: 'group-fans',
+          label: 'مجموعات جماهيرية',
+          share: 34,
+          description: 'تتحرك على دفعات بين البوابات وتحتاج توجيهًا لحظيًا.',
+          preferredTouchpoint: 'بوابات 2 و3',
+          sensitivity: 'medium',
+        },
+        {
+          id: 'family',
+          label: 'عائلات',
+          share: 31,
+          description: 'تبحث عن خدمات مريحة وطوابير أقصر.',
+          preferredTouchpoint: 'الجانب الغربي',
+          sensitivity: 'medium',
+        },
+        {
+          id: 'walk-in',
+          label: 'زوار لحظيون',
+          share: 35,
+          description: 'تدفق غير ثابت حسب ظروف المباراة.',
+          preferredTouchpoint: 'المداخل الثانوية',
+          sensitivity: 'high',
+        },
+      ],
+      league: [
+        {
+          id: 'regular',
+          label: 'مشجعون منتظمون',
+          share: 42,
+          description: 'نمط دخول متوقع واستجابة جيدة للتوجيه الرقمي.',
+          preferredTouchpoint: 'جميع البوابات',
+          sensitivity: 'low',
+        },
+        {
+          id: 'family',
+          label: 'عائلات',
+          share: 29,
+          description: 'تحتاج رسائل واضحة عن أفضل وقت للدخول والخروج.',
+          preferredTouchpoint: 'الجناح الجنوبي',
+          sensitivity: 'medium',
+        },
+        {
+          id: 'late-arrival',
+          label: 'وصول متأخر',
+          share: 29,
+          description: 'ترتفع نسبتهم قبل البداية بـ 15 دقيقة.',
+          preferredTouchpoint: 'الممر الشرقي',
+          sensitivity: 'medium',
+        },
+      ],
+      friendly: [
+        {
+          id: 'casual',
+          label: 'حضور ترفيهي',
+          share: 48,
+          description: 'تدفق مريح وسلوك منخفض الخطورة.',
+          preferredTouchpoint: 'الممرات القريبة من الخدمات',
+          sensitivity: 'low',
+        },
+        {
+          id: 'family',
+          label: 'عائلات',
+          share: 32,
+          description: 'تحتاج مسارات مريحة وتوزيعاً واضحاً للخدمات.',
+          preferredTouchpoint: 'الجناح الغربي',
+          sensitivity: 'low',
+        },
+        {
+          id: 'late-arrival',
+          label: 'وصول متأخر',
+          share: 20,
+          description: 'ضغط متأخر أقل مقارنة بباقي أنواع المباريات.',
+          preferredTouchpoint: 'بوابات متفرقة',
+          sensitivity: 'low',
+        },
+      ],
+    };
+
+    return byType[matchType] ?? byType.league;
+  }
+
+  getForecastTimeline(
+    matchType: string,
+    weather: string,
+    dayOfWeek: number,
+    timeOfDay: number,
+  ): CrowdForecastPoint[] {
+    const profile = this.predictBehavior(matchType, weather, dayOfWeek, timeOfDay);
+    if (!profile) return [];
+    const base = profile.avgCrowdDensity;
+
+    return Array.from({ length: 7 }, (_, index) => {
+      const minute = index * 15;
+      const peakWave = Math.sin((index / 6) * Math.PI) * 10;
+      const rampFactor = index <= 2 ? index * 2.5 : (6 - index) * 1.8;
+      const density = Math.max(20, Math.min(100, Math.round(base + peakWave + rampFactor - 6)));
+
+      return {
+        minute,
+        density,
+        riskLevel: this.toRiskLevel(density),
+        actionWindow: minute <= 30 ? 'نافذة استباقية' : minute <= 60 ? 'نافذة مراقبة' : 'نافذة احتواء',
+      };
+    });
+  }
+
+  getOperationalPlaybook(
+    matchType: string,
+    weather: string,
+    dayOfWeek: number,
+    timeOfDay: number,
+    currentDensity: number,
+  ): CrowdDNAPlaybook {
+    const predicted = this.predictBehavior(matchType, weather, dayOfWeek, timeOfDay);
+    if (!predicted) {
+      return { warnings: [], staffByGate: [], recommendedAnnouncements: [] };
+    }
+
+    const warnings: CrowdDNAWarning[] = [];
+    if (currentDensity >= predicted.avgCrowdDensity + 12) {
+      warnings.push({
+        severity: 'high',
+        title: 'انحراف حاد عن البصمة التاريخية',
+        description: `الكثافة الحالية (${currentDensity}%) أعلى بشكل ملحوظ من المتوقع (${predicted.avgCrowdDensity}%).`,
+        action: 'فعّل إعادة التوازن ووجّه الرسائل فوراً للمناطق البديلة.',
+      });
+    } else if (currentDensity >= predicted.avgCrowdDensity + 6) {
+      warnings.push({
+        severity: 'medium',
+        title: 'ارتفاع مبكر في التدفق',
+        description: 'يوجد ارتفاع تدريجي أعلى من السيناريو القياسي.',
+        action: 'ارفع عدد الموظفين على البوابات ذات الاختناق المتكرر.',
+      });
+    } else {
+      warnings.push({
+        severity: 'low',
+        title: 'تشغيل ضمن الحدود الطبيعية',
+        description: 'السلوك الحالي متسق مع البصمة التاريخية.',
+        action: 'استمر على خطة التشغيل القياسية مع مراقبة دورية.',
+      });
+    }
+
+    if (weather === 'rain') {
+      warnings.push({
+        severity: 'medium',
+        title: 'تأثير الطقس على التدفق',
+        description: 'المطر يرفع التكدس عند الممرات المغطاة ويغيّر حركة الجمهور.',
+        action: 'افتح مسارات بديلة جافة وزد إشارات التوجيه الصوتي.',
+      });
+    }
+
+    const staffByGate: CrowdDNAPlaybook["staffByGate"] = [1, 2, 3, 4].map(gateId => {
+      const isBottleneck = predicted.bottleneckGates.includes(gateId);
+      const baseStaff = 4;
+      const densityBoost = predicted.avgCrowdDensity >= 80 ? 2 : predicted.avgCrowdDensity >= 65 ? 1 : 0;
+      const staff = baseStaff + densityBoost + (isBottleneck ? 2 : 0);
+      return {
+        gateId,
+        staff,
+        priority: isBottleneck ? 'high' : staff >= 6 ? 'medium' : 'normal',
+      };
+    });
+
+    const recommendedAnnouncements = [
+      'الرجاء استخدام البوابات 1 و3 لتقليل وقت الانتظار.',
+      'تحديث لحظي: الممر الغربي أقل ازدحامًا حاليًا.',
+      'يرجى الحضور المبكر قبل 25 دقيقة لتجربة دخول أسرع.',
+    ];
+
+    return {
+      warnings,
+      staffByGate,
+      recommendedAnnouncements,
     };
   }
 

@@ -18,6 +18,8 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { QueueTimer } from '@/components/QueueTimer';
 import { FlowAnalytics } from '@/components/FlowAnalytics';
+import { FanChatRoom } from '@/components/FanChatRoom';
+import { FlashPollCard } from '@/components/FlashPollCard';
 import { fetchOperatorState } from '@/lib/operatorApi';
 import {
   claimDelayedExitReward,
@@ -509,6 +511,16 @@ export default function FanInterface() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Flash Polls */}
+        <FlashPollCard fanId={fanId} />
+
+        {/* Fan-to-Fan Live Chat */}
+        <FanChatRoom
+          fanId={fanId}
+          fanName={ticket.fanName}
+          room={`gate-${ticket.assignedGate}`}
+        />
 
         {/* Analytics Toggle and Display */}
         <div className="mb-8">

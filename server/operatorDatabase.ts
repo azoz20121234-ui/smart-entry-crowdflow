@@ -19,6 +19,17 @@ import {
   type LoyaltyLedgerEntry,
   type LoyaltyWalletResponse,
 } from "../shared/loyalty";
+import {
+  type FanChatMessage,
+  type FanChatMessagesResponse,
+  type FanChatSendResponse,
+} from "../shared/chat";
+import {
+  type FlashPoll,
+  type FlashPollOption,
+  type FlashPollStateResponse,
+  type FlashPollVoteResponse,
+} from "../shared/polls";
 
 const require = createRequire(import.meta.url);
 const wasmPath = require.resolve("sql.js/dist/sql-wasm.wasm");
@@ -31,6 +42,8 @@ const EARLY_ARRIVAL_REWARD_TOKENS = 40;
 const DELAYED_EXIT_REWARD_TOKENS = 30;
 const EARLY_ARRIVAL_THRESHOLD_MINUTES = 60;
 const DELAYED_EXIT_THRESHOLD_MINUTES = 20;
+const CHAT_DEFAULT_ROOM = "match-main";
+const FLASH_POLL_DEFAULT_ID = "flash-poll-main";
 
 function nowIso() {
   return new Date().toISOString();
@@ -66,6 +79,14 @@ function mapRows<T extends Record<string, unknown>>(db: Database, query: string)
   }
   stmt.free();
   return rows;
+}
+
+function escapeSqlValue(value: string): string {
+  return value.replace(/'/g, "''");
+}
+
+function sanitizeChatText(input: string): string {
+  return input.replace(/\s+/g, " ").trim();
 }
 
 export class OperatorDatabase {
@@ -142,6 +163,37 @@ export class OperatorDatabase {
         description TEXT NOT NULL,
         timestamp TEXT NOT NULL
       );
+
+      CREATE TABLE IF NOT EXISTS chat_messages (
+        id TEXT PRIMARY KEY,
+        room TEXT NOT NULL,
+        fan_id TEXT NOT NULL,
+        fan_name TEXT NOT NULL,
+        message TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS flash_polls (
+        id TEXT PRIMARY KEY,
+        question TEXT NOT NULL,
+        status TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS flash_poll_options (
+        id TEXT PRIMARY KEY,
+        poll_id TEXT NOT NULL,
+        text TEXT NOT NULL,
+        votes INTEGER NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS flash_poll_votes (
+        id TEXT PRIMARY KEY,
+        poll_id TEXT NOT NULL,
+        fan_id TEXT NOT NULL,
+        option_id TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      );
     `);
   }
 
@@ -201,6 +253,66 @@ export class OperatorDatabase {
           ],
         );
       });
+      changed = true;
+    }
+
+    if (this.rowCount("chat_messages") === 0) {
+      const now = Date.now();
+      const samples: Array<Pick<FanChatMessage, "fanId" | "fanName" | "message">> = [
+        {
+          fanId: "fan-guest-1",
+          fanName: "مشجع 1",
+          message: "أجواء رائعة اليوم! من جاهز للمباراة؟",
+        },
+        {
+          fanId: "fan-guest-2",
+          fanName: "مشجع 2",
+          message: "أنا قريب من البوابة 3، الازدحام ممتاز.",
+        },
+      ];
+      samples.forEach((sample, index) => {
+        this.db.run(
+          `
+            INSERT INTO chat_messages (id, room, fan_id, fan_name, message, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+          `,
+          [
+            `chat-seed-${index}-${now}`,
+            CHAT_DEFAULT_ROOM,
+            sample.fanId,
+            sample.fanName,
+            sample.message,
+            new Date(now - (samples.length - index) * 60_000).toISOString(),
+          ],
+        );
+      });
+      changed = true;
+    }
+
+    if (this.rowCount("flash_polls") === 0) {
+      const pollId = FLASH_POLL_DEFAULT_ID;
+      const createdAt = nowIso();
+      this.db.run(
+        `
+          INSERT INTO flash_polls (id, question, status, created_at)
+          VALUES (?, ?, ?, ?)
+        `,
+        [pollId, "هل كان قرار الحكم في آخر لقطة صحيحًا؟", "active", createdAt],
+      );
+      this.db.run(
+        `
+          INSERT INTO flash_poll_options (id, poll_id, text, votes)
+          VALUES (?, ?, ?, ?)
+        `,
+        [`${pollId}-yes`, pollId, "نعم", 0],
+      );
+      this.db.run(
+        `
+          INSERT INTO flash_poll_options (id, poll_id, text, votes)
+          VALUES (?, ?, ?, ?)
+        `,
+        [`${pollId}-no`, pollId, "لا", 0],
+      );
       changed = true;
     }
 
@@ -589,6 +701,306 @@ export class OperatorDatabase {
         tokensAwarded: -tokens,
         balance: nextBalance,
         message: "تم خصم العملات بنجاح.",
+      };
+    } catch (error) {
+      this.db.run("ROLLBACK");
+      throw error;
+    }
+  }
+
+  private readChatMessages(room: string, limit = 40): FanChatMessage[] {
+    const safeRoom = escapeSqlValue(room);
+    const rows = mapRows<{
+      id: string;
+      room: string;
+      fan_id: string;
+      fan_name: string;
+      message: string;
+      created_at: string;
+    }>(
+      this.db,
+      `
+        SELECT id, room, fan_id, fan_name, message, created_at
+        FROM chat_messages
+        WHERE room = '${safeRoom}'
+        ORDER BY created_at DESC
+        LIMIT ${limit}
+      `,
+    );
+
+    return rows
+      .map(row => ({
+        id: String(row.id),
+        room: String(row.room),
+        fanId: String(row.fan_id),
+        fanName: String(row.fan_name),
+        message: String(row.message),
+        createdAt: String(row.created_at),
+      }))
+      .reverse();
+  }
+
+  async getChatMessages(room: string, limit = 40): Promise<FanChatMessagesResponse> {
+    const normalizedRoom = room.trim() || CHAT_DEFAULT_ROOM;
+    return {
+      source: "server",
+      generatedAt: nowIso(),
+      room: normalizedRoom,
+      messages: this.readChatMessages(normalizedRoom, Math.max(1, Math.min(limit, 100))),
+    };
+  }
+
+  async sendChatMessage(
+    room: string,
+    fanId: string,
+    fanName: string,
+    message: string,
+  ): Promise<FanChatSendResponse> {
+    const normalizedRoom = room.trim() || CHAT_DEFAULT_ROOM;
+    const normalizedFanId = fanId.trim() || "fan-anonymous";
+    const normalizedFanName = fanName.trim() || "مشجع";
+    const normalizedMessage = sanitizeChatText(message);
+
+    if (!normalizedMessage) {
+      return {
+        source: "server",
+        generatedAt: nowIso(),
+        success: false,
+        room: normalizedRoom,
+      };
+    }
+
+    const chatMessage: FanChatMessage = {
+      id: `chat-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+      room: normalizedRoom,
+      fanId: normalizedFanId,
+      fanName: normalizedFanName,
+      message: normalizedMessage.slice(0, 280),
+      createdAt: nowIso(),
+    };
+
+    this.db.run(
+      `
+        INSERT INTO chat_messages (id, room, fan_id, fan_name, message, created_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `,
+      [
+        chatMessage.id,
+        chatMessage.room,
+        chatMessage.fanId,
+        chatMessage.fanName,
+        chatMessage.message,
+        chatMessage.createdAt,
+      ],
+    );
+
+    this.db.run(
+      `
+        DELETE FROM chat_messages
+        WHERE id IN (
+          SELECT id
+          FROM chat_messages
+          WHERE room = ?
+          ORDER BY created_at DESC
+          LIMIT -1 OFFSET 200
+        )
+      `,
+      [normalizedRoom],
+    );
+
+    await this.persist();
+
+    return {
+      source: "server",
+      generatedAt: nowIso(),
+      success: true,
+      room: normalizedRoom,
+      message: chatMessage,
+    };
+  }
+
+  private readFlashPollById(pollId: string): FlashPoll | null {
+    const safePollId = escapeSqlValue(pollId);
+    const pollRows = mapRows<{
+      id: string;
+      question: string;
+      status: string;
+      created_at: string;
+    }>(
+      this.db,
+      `
+        SELECT id, question, status, created_at
+        FROM flash_polls
+        WHERE id = '${safePollId}'
+        LIMIT 1
+      `,
+    );
+
+    const pollRow = pollRows[0];
+    if (!pollRow) return null;
+
+    const optionRows = mapRows<{
+      id: string;
+      text: string;
+      votes: number;
+    }>(
+      this.db,
+      `
+        SELECT id, text, votes
+        FROM flash_poll_options
+        WHERE poll_id = '${safePollId}'
+        ORDER BY id ASC
+      `,
+    );
+
+    const totalVotes = optionRows.reduce((sum, row) => sum + Number(row.votes), 0);
+    const options: FlashPollOption[] = optionRows.map(row => {
+      const votes = Number(row.votes);
+      return {
+        id: String(row.id),
+        text: String(row.text),
+        votes,
+        percentage: totalVotes > 0 ? Math.round((votes / totalVotes) * 100) : 0,
+      };
+    });
+
+    return {
+      id: String(pollRow.id),
+      question: String(pollRow.question),
+      status: pollRow.status === "closed" ? "closed" : "active",
+      createdAt: String(pollRow.created_at),
+      options,
+    };
+  }
+
+  async getCurrentFlashPoll(): Promise<FlashPollStateResponse> {
+    const pollRows = mapRows<{ id: string }>(
+      this.db,
+      `
+        SELECT id
+        FROM flash_polls
+        WHERE status = 'active'
+        ORDER BY created_at DESC
+        LIMIT 1
+      `,
+    );
+    const activePollId = String(pollRows[0]?.id ?? "");
+    return {
+      source: "server",
+      generatedAt: nowIso(),
+      poll: activePollId ? this.readFlashPollById(activePollId) : null,
+    };
+  }
+
+  async voteInFlashPoll(pollId: string, fanId: string, optionId: string): Promise<FlashPollVoteResponse> {
+    const normalizedPollId = pollId.trim();
+    const normalizedFanId = fanId.trim() || "fan-anonymous";
+    const normalizedOptionId = optionId.trim();
+
+    if (!normalizedPollId || !normalizedOptionId) {
+      return {
+        source: "server",
+        generatedAt: nowIso(),
+        success: false,
+        message: "بيانات التصويت غير مكتملة.",
+        poll: null,
+      };
+    }
+
+    const safePollId = escapeSqlValue(normalizedPollId);
+    const safeFanId = escapeSqlValue(normalizedFanId);
+
+    this.db.run("BEGIN");
+    try {
+      const pollRows = mapRows<{ id: string }>(
+        this.db,
+        `
+          SELECT id
+          FROM flash_polls
+          WHERE id = '${safePollId}' AND status = 'active'
+          LIMIT 1
+        `,
+      );
+      if (pollRows.length === 0) {
+        this.db.run("COMMIT");
+        return {
+          source: "server",
+          generatedAt: nowIso(),
+          success: false,
+          message: "هذا الاستطلاع غير متاح حالياً.",
+          poll: this.readFlashPollById(normalizedPollId),
+        };
+      }
+
+      const votedRows = mapRows<{ total: number }>(
+        this.db,
+        `
+          SELECT COUNT(*) AS total
+          FROM flash_poll_votes
+          WHERE poll_id = '${safePollId}' AND fan_id = '${safeFanId}'
+        `,
+      );
+      if (Number(votedRows[0]?.total ?? 0) > 0) {
+        this.db.run("COMMIT");
+        return {
+          source: "server",
+          generatedAt: nowIso(),
+          success: false,
+          message: "تم تسجيل تصويتك مسبقاً في هذا الاستطلاع.",
+          poll: this.readFlashPollById(normalizedPollId),
+        };
+      }
+
+      const optionRows = mapRows<{ id: string }>(
+        this.db,
+        `
+          SELECT id
+          FROM flash_poll_options
+          WHERE poll_id = '${safePollId}' AND id = '${escapeSqlValue(normalizedOptionId)}'
+          LIMIT 1
+        `,
+      );
+      if (optionRows.length === 0) {
+        this.db.run("COMMIT");
+        return {
+          source: "server",
+          generatedAt: nowIso(),
+          success: false,
+          message: "الخيار المحدد غير موجود.",
+          poll: this.readFlashPollById(normalizedPollId),
+        };
+      }
+
+      this.db.run(
+        `
+          INSERT INTO flash_poll_votes (id, poll_id, fan_id, option_id, created_at)
+          VALUES (?, ?, ?, ?, ?)
+        `,
+        [
+          `poll-vote-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+          normalizedPollId,
+          normalizedFanId,
+          normalizedOptionId,
+          nowIso(),
+        ],
+      );
+      this.db.run(
+        `
+          UPDATE flash_poll_options
+          SET votes = votes + 1
+          WHERE id = ? AND poll_id = ?
+        `,
+        [normalizedOptionId, normalizedPollId],
+      );
+      this.db.run("COMMIT");
+      await this.persist();
+
+      return {
+        source: "server",
+        generatedAt: nowIso(),
+        success: true,
+        message: "تم تسجيل صوتك بنجاح.",
+        poll: this.readFlashPollById(normalizedPollId),
       };
     } catch (error) {
       this.db.run("ROLLBACK");

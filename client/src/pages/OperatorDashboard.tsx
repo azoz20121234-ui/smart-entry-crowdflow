@@ -7,7 +7,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'wouter';
-import { AlertCircle, TrendingUp, Users, Zap, Clock, Settings, Bell, BarChart3, Activity, ArrowRight } from 'lucide-react';
+import { AlertCircle, TrendingUp, Users, Zap, Clock, Settings, Bell, BarChart3, Activity, ArrowRight, Sparkles, Target, RefreshCcw, Shield } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -27,6 +27,58 @@ interface SystemAlert {
 
 const LOCAL_ALERT_HISTORY_LIMIT = 8;
 const STEP_INTERVAL_MS = 3000;
+const WAIT_TIME_SLA_MINUTES = 8;
+const PLAN_TARGET_QUEUE = 45;
+const PLAN_SAFE_QUEUE = 55;
+
+interface RebalanceAction {
+  fromGateId: number;
+  toGateId: number;
+  people: number;
+  urgency: 'high' | 'medium';
+}
+
+function queueStatusFromValue(queue: number): GateStatus['status'] {
+  if (queue > 80) return 'critical';
+  if (queue > 50) return 'warning';
+  return 'normal';
+}
+
+function estimateWaitTime(queue: number, flowRate: number): number {
+  return Math.max(1, Math.round(queue / Math.max(flowRate, 1)));
+}
+
+function computeRebalancePlan(gates: GateStatus[]): RebalanceAction[] {
+  const overloaded = gates
+    .filter(gate => gate.currentQueue > PLAN_SAFE_QUEUE || gate.status !== 'normal')
+    .sort((a, b) => b.currentQueue - a.currentQueue);
+  const available = gates
+    .filter(gate => gate.currentQueue < PLAN_TARGET_QUEUE)
+    .map(gate => ({ ...gate, room: Math.max(0, PLAN_SAFE_QUEUE - gate.currentQueue) }))
+    .sort((a, b) => b.room - a.room);
+
+  const plan: RebalanceAction[] = [];
+
+  overloaded.forEach(fromGate => {
+    let remaining = Math.max(0, fromGate.currentQueue - PLAN_TARGET_QUEUE);
+    for (const target of available) {
+      if (remaining <= 0) break;
+      if (target.room <= 0) continue;
+      const moved = Math.min(remaining, target.room);
+      if (moved <= 0) continue;
+      plan.push({
+        fromGateId: fromGate.id,
+        toGateId: target.id,
+        people: moved,
+        urgency: fromGate.status === 'critical' ? 'high' : 'medium',
+      });
+      remaining -= moved;
+      target.room -= moved;
+    }
+  });
+
+  return plan.slice(0, 6);
+}
 
 function createInitialLocalAlerts(): SystemAlert[] {
   return [
@@ -103,12 +155,17 @@ function updateLocalAlerts(nextGates: GateStatus[], previousAlerts: SystemAlert[
   return [...previousAlerts.slice(-(LOCAL_ALERT_HISTORY_LIMIT - 1)), criticalAlert];
 }
 
+function prependAlert(previousAlerts: SystemAlert[], alert: SystemAlert): SystemAlert[] {
+  return [alert, ...previousAlerts].slice(0, LOCAL_ALERT_HISTORY_LIMIT);
+}
+
 export default function OperatorDashboard() {
   const [, setLocation] = useLocation();
   const [gates, setGates] = useState<GateStatus[]>(() => createDefaultGates());
   const [alerts, setAlerts] = useState<SystemAlert[]>(() => createInitialLocalAlerts());
   const [selectedGate, setSelectedGate] = useState<GateStatus | null>(null);
   const [showRecommendations, setShowRecommendations] = useState(true);
+  const [emergencyLaneOpen, setEmergencyLaneOpen] = useState(false);
   const [dataSource, setDataSource] = useState<'server' | 'local'>('local');
   const gatesRef = useRef<GateStatus[]>(gates);
   const alertsRef = useRef<SystemAlert[]>(alerts);
@@ -178,6 +235,116 @@ export default function OperatorDashboard() {
   const totalQueued = gates.reduce((sum, g) => sum + g.currentQueue, 0);
   const averageEfficiency = Math.round(gates.reduce((sum, g) => sum + g.efficiency, 0) / gates.length);
   const criticalGates = gates.filter(g => g.status === 'critical');
+  const slaCompliantGates = gates.filter(g => g.averageWaitTime <= WAIT_TIME_SLA_MINUTES).length;
+  const slaComplianceRate = Math.round((slaCompliantGates / Math.max(1, gates.length)) * 100);
+  const pressureIndex = Math.round(Math.min(100, totalQueued / Math.max(1, gates.length)));
+  const forecastedCriticalIn15 = gates.filter(g => {
+    const trendImpact = g.trend === 'up' ? 14 : g.trend === 'down' ? -10 : 4;
+    const forecastQueue = Math.max(0, Math.min(220, Math.round(g.currentQueue + trendImpact)));
+    return queueStatusFromValue(forecastQueue) === 'critical';
+  }).length;
+  const rebalancePlan = computeRebalancePlan(gates);
+  const rebalancePeopleCount = rebalancePlan.reduce((sum, action) => sum + action.people, 0);
+
+  const handleApplyRebalancePlan = () => {
+    if (rebalancePlan.length === 0) {
+      const stableAlert: SystemAlert = {
+        id: `rebalance-stable-${Date.now()}`,
+        type: 'info',
+        message: 'لا توجد حاجة لإعادة التوازن حالياً. جميع البوابات ضمن الحدود الآمنة.',
+        timestamp: new Date(),
+        actionRequired: false,
+      };
+      setAlerts(prev => prependAlert(prev, stableAlert));
+      return;
+    }
+
+    setDataSource('local');
+    setGates(previous => {
+      const nextMap = new Map<number, GateStatus>(
+        previous.map(gate => [gate.id, { ...gate }]),
+      );
+
+      rebalancePlan.forEach(action => {
+        const from = nextMap.get(action.fromGateId);
+        const to = nextMap.get(action.toGateId);
+        if (!from || !to) return;
+        from.currentQueue = Math.max(0, from.currentQueue - action.people);
+        to.currentQueue = Math.min(220, to.currentQueue + action.people);
+      });
+
+      return previous.map(gate => {
+        const next = nextMap.get(gate.id)!;
+        const status = queueStatusFromValue(next.currentQueue);
+        const trend: GateStatus['trend'] =
+          next.currentQueue > gate.currentQueue + 4
+            ? 'up'
+            : next.currentQueue < gate.currentQueue - 4
+              ? 'down'
+              : 'stable';
+        return {
+          ...next,
+          averageWaitTime: estimateWaitTime(next.currentQueue, next.flowRate),
+          efficiency: Math.round((next.flowRate / 50) * 100),
+          status,
+          trend,
+        };
+      });
+    });
+
+    const rebalanceAlert: SystemAlert = {
+      id: `rebalance-${Date.now()}`,
+      type: 'warning',
+      message: `تم تطبيق خطة إعادة التوازن ونقل ${rebalancePeopleCount} مشجع بين البوابات.`,
+      timestamp: new Date(),
+      actionRequired: false,
+    };
+    setAlerts(prev => prependAlert(prev, rebalanceAlert));
+  };
+
+  const handleSimulateRush = () => {
+    setDataSource('local');
+    setGates(previous =>
+      previous.map(gate => {
+        const nextQueue = Math.min(220, gate.currentQueue + 18);
+        const nextFlow = Math.max(20, gate.flowRate - 3);
+        return {
+          ...gate,
+          currentQueue: nextQueue,
+          flowRate: nextFlow,
+          averageWaitTime: estimateWaitTime(nextQueue, nextFlow),
+          efficiency: Math.round((nextFlow / 50) * 100),
+          status: queueStatusFromValue(nextQueue),
+          trend: 'up',
+        };
+      }),
+    );
+    const rushAlert: SystemAlert = {
+      id: `rush-${Date.now()}`,
+      type: 'critical',
+      message: 'تم رصد موجة وصول مفاجئة. يوصى بتفعيل إعادة التوازن فوراً.',
+      timestamp: new Date(),
+      actionRequired: true,
+    };
+    setAlerts(prev => prependAlert(prev, rushAlert));
+  };
+
+  const handleToggleEmergencyLane = () => {
+    setEmergencyLaneOpen(prev => {
+      const next = !prev;
+      const emergencyAlert: SystemAlert = {
+        id: `emergency-lane-${Date.now()}`,
+        type: next ? 'warning' : 'info',
+        message: next
+          ? 'تم فتح مسار الطوارئ في الممر الرئيسي لتخفيف الاختناق.'
+          : 'تم إغلاق مسار الطوارئ والعودة للتشغيل المعتاد.',
+        timestamp: new Date(),
+        actionRequired: false,
+      };
+      setAlerts(items => prependAlert(items, emergencyAlert));
+      return next;
+    });
+  };
 
   // Generate historical data for selected gate
   const generateHistoricalData = () => {
@@ -273,6 +440,104 @@ export default function OperatorDashboard() {
 
       {/* Main Content */}
       <div className="container mx-auto px-4 py-8">
+        {/* Competitive Control Center */}
+        <Card className="mb-8 shadow-md border-2 border-indigo-200 bg-gradient-to-br from-indigo-50 to-cyan-50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-indigo-600" />
+              مركز القيادة التنبؤي (ميزة تنافسية)
+            </CardTitle>
+            <CardDescription>
+              قرارات تشغيل ذكية قبل حدوث الاختناق، مع قياس التزام الخدمة وجودة التوزيع.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-5">
+              <div className="rounded-lg border border-indigo-200 bg-white p-4">
+                <p className="text-xs text-slate-600">مؤشر ضغط الممرات</p>
+                <p className="text-3xl font-bold text-indigo-700">{pressureIndex}</p>
+                <p className="text-xs text-slate-500">من 100</p>
+              </div>
+              <div className="rounded-lg border border-emerald-200 bg-white p-4">
+                <p className="text-xs text-slate-600">الالتزام بـ SLA</p>
+                <p className="text-3xl font-bold text-emerald-700">{slaComplianceRate}%</p>
+                <p className="text-xs text-slate-500">انتظار ≤ {WAIT_TIME_SLA_MINUTES} دقائق</p>
+              </div>
+              <div className="rounded-lg border border-amber-200 bg-white p-4">
+                <p className="text-xs text-slate-600">خطر 15 دقيقة</p>
+                <p className="text-3xl font-bold text-amber-700">{forecastedCriticalIn15}</p>
+                <p className="text-xs text-slate-500">بوابة مرشحة للوضع الحرج</p>
+              </div>
+              <div className="rounded-lg border border-blue-200 bg-white p-4">
+                <p className="text-xs text-slate-600">خطة إعادة التوزيع</p>
+                <p className="text-3xl font-bold text-blue-700">{rebalancePeopleCount}</p>
+                <p className="text-xs text-slate-500">مشجع قابل لإعادة التوجيه</p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              <Button
+                className="bg-indigo-700 hover:bg-indigo-800"
+                onClick={handleApplyRebalancePlan}
+              >
+                <Target className="w-4 h-4 mr-2" />
+                تطبيق خطة إعادة التوازن
+              </Button>
+              <Button variant="outline" onClick={handleSimulateRush}>
+                <RefreshCcw className="w-4 h-4 mr-2" />
+                محاكاة ذروة مفاجئة
+              </Button>
+              <Button
+                variant={emergencyLaneOpen ? 'default' : 'outline'}
+                className={emergencyLaneOpen ? 'bg-red-700 hover:bg-red-800' : ''}
+                onClick={handleToggleEmergencyLane}
+              >
+                <Shield className="w-4 h-4 mr-2" />
+                {emergencyLaneOpen ? 'مسار الطوارئ مفعل' : 'فتح مسار طوارئ'}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Rebalance Mission List */}
+        <Card className="mb-8 shadow-md">
+          <CardHeader>
+            <CardTitle>قائمة المهام التشغيلية المقترحة</CardTitle>
+            <CardDescription>
+              أوامر توزيع لحظية لتقليل الازدحام قبل وصوله للحالة الحرجة.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {rebalancePlan.length === 0 ? (
+              <p className="text-sm text-slate-600">لا توجد تحويلات لازمة حالياً. توزيع الحشود متوازن.</p>
+            ) : (
+              <div className="space-y-3">
+                {rebalancePlan.map((item, index) => {
+                  const fromGate = gates.find(g => g.id === item.fromGateId);
+                  const toGate = gates.find(g => g.id === item.toGateId);
+                  return (
+                    <div
+                      key={`${item.fromGateId}-${item.toGateId}-${index}`}
+                      className={`rounded-lg border p-3 ${
+                        item.urgency === 'high'
+                          ? 'border-red-200 bg-red-50'
+                          : 'border-amber-200 bg-amber-50'
+                      }`}
+                    >
+                      <p className="font-semibold text-slate-900">
+                        تحويل {item.people} مشجع من {fromGate?.name ?? `البوابة ${item.fromGateId}`} إلى {toGate?.name ?? `البوابة ${item.toGateId}`}
+                      </p>
+                      <p className="text-xs text-slate-600 mt-1">
+                        الأولوية: {item.urgency === 'high' ? 'عاجلة' : 'متوسطة'} - التنفيذ الآن يقلل ضغط الممرات مباشرة.
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Critical Alerts */}
         {criticalGates.length > 0 && (
           <Alert className="mb-8 border-red-200 bg-red-50">

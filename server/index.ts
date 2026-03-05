@@ -26,6 +26,12 @@ function getBodyNumber(value: unknown, fallback = 0): number {
   return fallback;
 }
 
+function getQueryNumber(value: unknown, fallback = 0): number {
+  if (typeof value !== "string") return fallback;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
 async function startServer() {
   const operatorDatabase = await OperatorDatabase.create();
   const app = express();
@@ -89,6 +95,43 @@ async function startServer() {
     const description = getBodyString(req.body?.description, "شراء داخل الملعب");
     const payload = await operatorDatabase.spendLoyaltyTokens(fanId, tokens, description);
     res.json(payload);
+  });
+
+  app.get("/api/chat/messages", async (req, res) => {
+    const room = getBodyString(req.query.room, "match-main");
+    const limit = getQueryNumber(req.query.limit, 40);
+    const payload = await operatorDatabase.getChatMessages(room, limit);
+    res.json(payload);
+  });
+
+  app.post("/api/chat/messages", async (req, res) => {
+    const room = getBodyString(req.body?.room, "match-main");
+    const fanId = getBodyString(req.body?.fanId, "fan-anonymous");
+    const fanName = getBodyString(req.body?.fanName, "مشجع");
+    const message = getBodyString(req.body?.message, "");
+    const payload = await operatorDatabase.sendChatMessage(room, fanId, fanName, message);
+    if (!payload.success) {
+      res.status(400).json(payload);
+      return;
+    }
+    res.status(201).json(payload);
+  });
+
+  app.get("/api/polls/flash/current", async (_req, res) => {
+    const payload = await operatorDatabase.getCurrentFlashPoll();
+    res.json(payload);
+  });
+
+  app.post("/api/polls/flash/vote", async (req, res) => {
+    const pollId = getBodyString(req.body?.pollId, "");
+    const fanId = getBodyString(req.body?.fanId, "fan-anonymous");
+    const optionId = getBodyString(req.body?.optionId, "");
+    const payload = await operatorDatabase.voteInFlashPoll(pollId, fanId, optionId);
+    if (!payload.success) {
+      res.status(400).json(payload);
+      return;
+    }
+    res.status(200).json(payload);
   });
 
   // Serve static files from dist/public in production
