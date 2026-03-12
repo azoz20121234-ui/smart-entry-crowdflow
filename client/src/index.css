@@ -43,77 +43,83 @@
 }
 
 :root {
-  --primary: #1e3a8a;
-  --primary-foreground: #f0f9ff;
-  --sidebar-primary: #1e40af;
-  --sidebar-primary-foreground: #f0f9ff;
-  --chart-1: #10b981;
-  --chart-2: #06b6d4;
-  --chart-3: #1e40af;
-  --chart-4: #1e3a8a;
-  --chart-5: #0c4a6e;
-  --radius: 0.65rem;
-  --background: oklch(0.98 0.001 286.375);
-  --foreground: oklch(0.235 0.015 65);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.235 0.015 65);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.235 0.015 65);
-  --secondary: oklch(0.98 0.001 286.375);
-  --secondary-foreground: oklch(0.4 0.015 65);
-  --muted: oklch(0.967 0.001 286.375);
-  --muted-foreground: oklch(0.552 0.016 285.938);
-  --accent: #10b981;
-  --accent-foreground: oklch(1 0 0);
-  --destructive: #ef4444;
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.92 0.004 286.32);
-  --input: oklch(0.92 0.004 286.32);
-  --ring: #1e3a8a;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.235 0.015 65);
-  --sidebar-accent: #1e3a8a;
-  --sidebar-accent-foreground: #f0f9ff;
-  --sidebar-border: oklch(0.92 0.004 286.32);
-  --sidebar-ring: #1e3a8a;
-  --success: #10b981;
-  --warning: #f59e0b;
-  --error: #ef4444;
+  /* Apple Design System Colors */
+  --primary: #0071e3;
+  --primary-foreground: #ffffff;
+  --secondary: #00d4ff;
+  --secondary-foreground: #000000;
+  --accent: #ff3b30;
+  --accent-foreground: #ffffff;
+  --success: #34c759;
+  --success-foreground: #ffffff;
+  --warning: #ff9500;
+  --warning-foreground: #ffffff;
+  --destructive: #ff3b30;
+  --destructive-foreground: #ffffff;
+  --muted: #8e8e93;
+  --muted-foreground: #ffffff;
+  --sidebar-primary: #0071e3;
+  --sidebar-primary-foreground: #ffffff;
+  --chart-1: #0071e3;
+  --chart-2: #00d4ff;
+  --chart-3: #34c759;
+  --chart-4: #ff9500;
+  --chart-5: #ff3b30;
+  --radius: 1rem;
+  --background: #000000;
+  --foreground: #ffffff;
+  --card: #1c1c1e;
+  --card-foreground: #ffffff;
+  --popover: #1c1c1e;
+  --popover-foreground: #ffffff;
+  --border: #424245;
+  --input: #1c1c1e;
+  --ring: #0071e3;
+  --sidebar: #000000;
+  --sidebar-foreground: #ffffff;
+  --sidebar-accent: #0071e3;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #424245;
+  --sidebar-ring: #0071e3;
 }
 
 .dark {
-  --primary: var(--color-blue-700);
-  --primary-foreground: var(--color-blue-50);
-  --sidebar-primary: var(--color-blue-500);
-  --sidebar-primary-foreground: var(--color-blue-50);
-  --background: oklch(0.141 0.005 285.823);
-  --foreground: oklch(0.85 0.005 65);
-  --card: oklch(0.21 0.006 285.885);
-  --card-foreground: oklch(0.85 0.005 65);
-  --popover: oklch(0.21 0.006 285.885);
-  --popover-foreground: oklch(0.85 0.005 65);
-  --secondary: oklch(0.24 0.006 286.033);
-  --secondary-foreground: oklch(0.7 0.005 65);
-  --muted: oklch(0.274 0.006 286.033);
-  --muted-foreground: oklch(0.705 0.015 286.067);
-  --accent: oklch(0.274 0.006 286.033);
-  --accent-foreground:  oklch(0.92 0.005 65);
-  --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.488 0.243 264.376);
-  --chart-1: var(--color-blue-300);
-  --chart-2: var(--color-blue-500);
-  --chart-3: var(--color-blue-600);
-  --chart-4: var(--color-blue-700);
-  --chart-5: var(--color-blue-800);
-  --sidebar: oklch(0.21 0.006 285.885);
-  --sidebar-foreground: oklch(0.85 0.005 65);
-  --sidebar-accent: oklch(0.274 0.006 286.033);
-  --sidebar-accent-foreground:  oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.488 0.243 264.376);
+  --primary: #0071e3;
+  --primary-foreground: #ffffff;
+  --secondary: #00d4ff;
+  --secondary-foreground: #000000;
+  --accent: #ff3b30;
+  --accent-foreground: #ffffff;
+  --success: #34c759;
+  --success-foreground: #ffffff;
+  --warning: #ff9500;
+  --warning-foreground: #ffffff;
+  --destructive: #ff3b30;
+  --destructive-foreground: #ffffff;
+  --muted: #8e8e93;
+  --muted-foreground: #ffffff;
+  --sidebar-primary: #0071e3;
+  --sidebar-primary-foreground: #ffffff;
+  --background: #000000;
+  --foreground: #ffffff;
+  --card: #1c1c1e;
+  --card-foreground: #ffffff;
+  --popover: #1c1c1e;
+  --popover-foreground: #ffffff;
+  --border: #424245;
+  --input: #1c1c1e;
+  --ring: #0071e3;
+  --sidebar: #000000;
+  --sidebar-foreground: #ffffff;
+  --sidebar-accent: #0071e3;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #424245;
+  --sidebar-ring: #0071e3;
+  --chart-1: #0071e3;
+  --chart-2: #00d4ff;
+  --chart-3: #34c759;
+  --chart-4: #ff9500;
+  --chart-5: #ff3b30;
 }
 
 @layer base {
@@ -121,22 +127,10 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground font-sans;
-    direction: rtl;
-    text-align: right;
-    font-family: 'Tajawal', sans-serif;
-  }
-  
-  h1, h2, h3, h4, h5, h6 {
-    font-family: 'Cairo', sans-serif;
-    font-weight: 800;
-  }
-
-  input,
-  textarea,
-  select {
-    direction: rtl;
-    text-align: right;
+    @apply bg-background text-foreground;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
   button:not(:disabled),
   [role="button"]:not([aria-disabled="true"]),
@@ -149,28 +143,37 @@
   input[type="radio"]:not(:disabled) {
     @apply cursor-pointer;
   }
+
+  /* Apple Typography */
+  h1 {
+    @apply text-5xl font-bold tracking-tight;
+  }
+  h2 {
+    @apply text-4xl font-bold tracking-tight;
+  }
+  h3 {
+    @apply text-3xl font-bold tracking-tight;
+  }
+  h4 {
+    @apply text-2xl font-semibold;
+  }
+  h5 {
+    @apply text-xl font-semibold;
+  }
+  h6 {
+    @apply text-lg font-semibold;
+  }
 }
 
 @layer components {
-  /**
-   * Custom container utility that centers content and adds responsive padding.
-   *
-   * This overrides Tailwind's default container behavior to:
-   * - Auto-center content (mx-auto)
-   * - Add responsive horizontal padding
-   * - Set max-width for large screens
-   *
-   * Usage: <div className="container">...</div>
-   *
-   * For custom widths, use max-w-* utilities directly:
-   * <div className="max-w-6xl mx-auto px-4">...</div>
-   */
+
+  /* Container */
   .container {
     width: 100%;
     margin-left: auto;
     margin-right: auto;
-    padding-left: 1rem; /* 16px - mobile padding */
-    padding-right: 1rem;
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
   }
 
   .flex {
@@ -180,16 +183,34 @@
 
   @media (min-width: 640px) {
     .container {
-      padding-left: 1.5rem; /* 24px - tablet padding */
-      padding-right: 1.5rem;
+      padding-left: 2rem;
+      padding-right: 2rem;
     }
   }
 
   @media (min-width: 1024px) {
     .container {
-      padding-left: 2rem; /* 32px - desktop padding */
-      padding-right: 2rem;
-      max-width: 1280px; /* Standard content width */
+      padding-left: 3rem;
+      padding-right: 3rem;
+      max-width: 1400px;
     }
+  }
+
+  /* Glassmorphism */
+  .glass {
+    @apply backdrop-blur-xl bg-white/10 border border-white/20;
+  }
+
+  /* Apple Spacing */
+  .space-apple-sm {
+    @apply space-y-4;
+  }
+
+  .space-apple-md {
+    @apply space-y-6;
+  }
+
+  .space-apple-lg {
+    @apply space-y-8;
   }
 }
