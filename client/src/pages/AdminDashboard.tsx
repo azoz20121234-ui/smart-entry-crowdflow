@@ -16,6 +16,8 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { fetchOperatorState } from '@/lib/operatorApi';
 import { createDefaultGates, type GateStatus } from '@shared/operator';
+import { FanArrivalSimulator } from '@/components/FanArrivalSimulator';
+import { ScenarioSimulation } from '@/components/ScenarioSimulation';
 
 // Mock data for crowd flow
 const generateCrowdData = () => {
@@ -353,6 +355,16 @@ export default function AdminDashboard() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Fan Arrival Simulator */}
+        <div className="mt-8">
+          <FanArrivalSimulator />
+        </div>
+
+        {/* Scenario Simulation */}
+        <div className="mt-8">
+          <ScenarioSimulation />
+        </div>
 
         {/* Virtual Queue Info */}
         <Card className="mt-8 shadow-md bg-gradient-to-r from-blue-50 to-cyan-50 border-blue-200">
