@@ -11,6 +11,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import FanInterface from "./pages/FanInterface";
 import OperatorDashboard from "./pages/OperatorDashboard";
 import OperatorDashboardApple from "./pages/OperatorDashboardApple";
+import ExecutiveDashboardApple from "./pages/ExecutiveDashboardApple";
 import ExecutiveOpsPanel from "./pages/ExecutiveOpsPanel";
 
 
@@ -22,6 +23,7 @@ function AppRoutes() {
       <Route path="/fan" component={FanInterface} />
       <Route path="/operator" component={OperatorDashboard} />
       <Route path="/operator-apple" component={OperatorDashboardApple} />
+      <Route path="/executive-apple" component={ExecutiveDashboardApple} />
       <Route path="/executive" component={ExecutiveOpsPanel} />
       <Route path="/404" component={NotFound} />
       {/* Final fallback route */}
