@@ -18,6 +18,7 @@ import { fetchOperatorState } from '@/lib/operatorApi';
 import { createDefaultGates, type GateStatus } from '@shared/operator';
 import { FanArrivalSimulator } from '@/components/FanArrivalSimulator';
 import { ScenarioSimulation } from '@/components/ScenarioSimulation';
+import { GateCapacityMonitor } from '@/components/GateCapacityMonitor';
 
 // Mock data for crowd flow
 const generateCrowdData = () => {
@@ -364,6 +365,11 @@ export default function AdminDashboard() {
         {/* Scenario Simulation */}
         <div className="mt-8">
           <ScenarioSimulation />
+        </div>
+
+        {/* Gate Capacity Monitor */}
+        <div className="mt-8">
+          <GateCapacityMonitor />
         </div>
 
         {/* Virtual Queue Info */}
