@@ -4,6 +4,7 @@
  * 
  * غرفة العمليات الرئيسية للملاعب الذكية
  * Inspired by: Apple Design + FIFA Stadium Operations + NASA Control Rooms
+ * Enhanced with: Saudi National Identity + Predictive Intelligence + Operational Narrative
  */
 
 import { useState, useEffect } from 'react';
@@ -11,8 +12,8 @@ import { useLocation } from 'wouter';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { ArrowLeft, AlertCircle, TrendingUp, Users, Zap, MapPin } from 'lucide-react';
-import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { ArrowLeft, AlertCircle, TrendingUp, Users, Zap, MapPin, Brain, Clock, Target, Activity } from 'lucide-react';
+import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
 const arrivalPredictionData = [
   { time: 'T-90', fans: 4000, label: 'T-90' },
@@ -33,18 +34,63 @@ const crowdFlowData = [
   { time: '20:00', flow: 3200 },
 ];
 
+const gateDistributionData = [
+  { name: 'Gate 1', value: 28, color: '#10b981' },
+  { name: 'Gate 2', value: 35, color: '#ef4444' },
+  { name: 'Gate 3', value: 22, color: '#10b981' },
+  { name: 'Gate 4', value: 15, color: '#f59e0b' },
+];
+
+// Predictive Intelligence Engine
+const predictiveInsights = [
+  {
+    id: 1,
+    type: 'warning',
+    title: 'تحذير: ازدحام متوقع',
+    description: 'يتوقع ازدحام البوابة 2 خلال 7 دقائق بنسبة 92%',
+    action: 'فتح مسار إضافي',
+    confidence: 92,
+    icon: AlertCircle,
+    color: 'from-red-600 to-red-800',
+  },
+  {
+    id: 2,
+    type: 'recommendation',
+    title: 'توصية ذكية',
+    description: 'نوصي بإعادة توجيه 20% من الجماهير للبوابة 4 (غير مزدحمة)',
+    action: 'تنفيذ الآن',
+    confidence: 88,
+    icon: Brain,
+    color: 'from-blue-600 to-blue-800',
+  },
+  {
+    id: 3,
+    type: 'info',
+    title: 'معلومة تشغيلية',
+    description: 'الممر الشمالي جاهز لاستقبال 5000 مشجع إضافي',
+    action: 'تفعيل الآن',
+    confidence: 95,
+    icon: Zap,
+    color: 'from-green-600 to-green-800',
+  },
+];
+
 export default function StadiumCommandCenter() {
   const [location, setLocation] = useLocation();
   const [attendance, setAttendance] = useState(45000);
   const [crowdDensity, setCrowdDensity] = useState(68);
   const [gateRisk, setGateRisk] = useState(62);
   const [activeAlerts, setActiveAlerts] = useState(3);
+  const [entranceRate, setEntranceRate] = useState(1250);
+  const [slaCompliance, setSlaCompliance] = useState(87);
 
   useEffect(() => {
     const interval = setInterval(() => {
       setAttendance(prev => Math.max(40000, Math.min(55000, prev + Math.random() * 1000 - 500)));
       setCrowdDensity(prev => Math.max(30, Math.min(95, prev + Math.random() * 10 - 5)));
       setGateRisk(prev => Math.max(20, Math.min(90, prev + Math.random() * 8 - 4)));
+      setEntranceRate(prev => Math.max(800, Math.min(1500, prev + Math.random() * 200 - 100)));
+      setSlaCompliance(prev => Math.max(75, Math.min(98, prev + Math.random() * 5 - 2.5)));
     }, 4000);
 
     return () => clearInterval(interval);
@@ -62,9 +108,15 @@ export default function StadiumCommandCenter() {
     return 'bg-green-500/10 border-green-500/30';
   };
 
+  const getStatusText = (value: number) => {
+    if (value > 75) return 'حرج';
+    if (value > 50) return 'تحذير';
+    return 'طبيعي';
+  };
+
   return (
     <div className="min-h-screen bg-black text-white">
-      {/* Header */}
+      {/* Header with Saudi National Identity */}
       <div className="border-b border-gray-800 bg-gradient-to-b from-gray-900/50 to-black sticky top-0 z-50">
         <div className="container py-6">
           <div className="flex items-center justify-between mb-6">
@@ -78,18 +130,85 @@ export default function StadiumCommandCenter() {
               العودة
             </Button>
             <div className="text-right">
-              <h1 className="text-3xl font-bold">CrowdOS</h1>
-              <p className="text-gray-400 text-sm">Stadium Command Center</p>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-green-600 to-green-800 flex items-center justify-center">
+                  <span className="text-white font-bold text-sm">🇸🇦</span>
+                </div>
+                <h1 className="text-3xl font-bold bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent">CrowdOS</h1>
+              </div>
+              <p className="text-gray-400 text-sm">Stadium Command Center | مركز قيادة الملعب</p>
             </div>
           </div>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="container py-8">
+      <div className="container py-8 space-y-8">
+        {/* Top KPIs - Performance Metrics */}
+        <div>
+          <h2 className="text-xl font-bold mb-4 text-gray-300">مؤشرات الأداء الحية</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Total Attendance */}
+            <Card className="rounded-2xl bg-gradient-to-br from-blue-900/20 to-blue-800/10 border-blue-500/30 backdrop-blur-xl">
+              <CardContent className="pt-6">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-gray-400 text-sm mb-1">إجمالي الحضور</p>
+                    <p className="text-3xl font-bold text-blue-400">{Math.round(attendance).toLocaleString()}</p>
+                    <p className="text-xs text-gray-500 mt-2">من 60,000 سعة</p>
+                  </div>
+                  <Users className="w-8 h-8 text-blue-400/50" />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Entrance Rate */}
+            <Card className="rounded-2xl bg-gradient-to-br from-cyan-900/20 to-cyan-800/10 border-cyan-500/30 backdrop-blur-xl">
+              <CardContent className="pt-6">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-gray-400 text-sm mb-1">معدل الدخول</p>
+                    <p className="text-3xl font-bold text-cyan-400">{Math.round(entranceRate)}</p>
+                    <p className="text-xs text-gray-500 mt-2">مشجع/دقيقة</p>
+                  </div>
+                  <Activity className="w-8 h-8 text-cyan-400/50" />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Overall Crowd Density */}
+            <Card className="rounded-2xl bg-gradient-to-br from-amber-900/20 to-amber-800/10 border-amber-500/30 backdrop-blur-xl">
+              <CardContent className="pt-6">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-gray-400 text-sm mb-1">كثافة الجماهير</p>
+                    <p className="text-3xl font-bold text-amber-400">{Math.round(crowdDensity)}%</p>
+                    <p className="text-xs text-gray-500 mt-2">{getStatusText(crowdDensity)}</p>
+                  </div>
+                  <MapPin className="w-8 h-8 text-amber-400/50" />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* SLA Compliance */}
+            <Card className="rounded-2xl bg-gradient-to-br from-emerald-900/20 to-emerald-800/10 border-emerald-500/30 backdrop-blur-xl">
+              <CardContent className="pt-6">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-gray-400 text-sm mb-1">SLA الدخول</p>
+                    <p className="text-3xl font-bold text-emerald-400">{Math.round(slaCompliance)}%</p>
+                    <p className="text-xs text-gray-500 mt-2">دخول في الوقت</p>
+                  </div>
+                  <Target className="w-8 h-8 text-emerald-400/50" />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
         {/* Critical Alerts */}
         {activeAlerts > 0 && (
-          <Alert className="mb-8 border-red-900/50 bg-red-950/20 backdrop-blur-xl">
+          <Alert className="border-red-900/50 bg-red-950/20 backdrop-blur-xl rounded-2xl">
             <AlertCircle className="h-5 w-5 text-red-500" />
             <AlertDescription className="text-red-200 ml-4 text-sm">
               {activeAlerts} تنبيهات نشطة تحتاج إلى اهتمام فوري
@@ -97,193 +216,305 @@ export default function StadiumCommandCenter() {
           </Alert>
         )}
 
-        {/* Top Section - Event Status Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          {/* Total Attendance */}
-          <Card className="rounded-2xl bg-gray-900/40 border-gray-800 backdrop-blur-xl hover:bg-gray-900/60 transition-all duration-300">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between mb-4">
-                <p className="text-gray-400 text-sm">إجمالي الحضور</p>
-                <Users className="w-5 h-5 text-blue-500" />
-              </div>
-              <div className="text-3xl font-bold mb-2">{(attendance / 1000).toFixed(0)}K</div>
-              <p className="text-gray-500 text-xs">من السعة الكلية 60,000</p>
-            </CardContent>
-          </Card>
-
-          {/* Crowd Density */}
-          <Card className="rounded-2xl bg-gray-900/40 border-gray-800 backdrop-blur-xl hover:bg-gray-900/60 transition-all duration-300">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between mb-4">
-                <p className="text-gray-400 text-sm">كثافة الجماهير</p>
-                <Zap className="w-5 h-5 text-cyan-500" />
-              </div>
-              <div className="text-3xl font-bold mb-2">{crowdDensity.toFixed(0)}%</div>
-              <div className="w-full bg-gray-800 rounded-full h-2">
-                <div
-                  className="bg-gradient-to-r from-cyan-500 to-blue-500 h-2 rounded-full transition-all duration-500"
-                  style={{ width: `${crowdDensity}%` }}
-                ></div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Gate Risk */}
-          <Card className={`rounded-2xl border backdrop-blur-xl hover:bg-gray-900/60 transition-all duration-300 ${getRiskBgColor(gateRisk)}`}>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between mb-4">
-                <p className="text-gray-400 text-sm">مخاطر البوابات</p>
-                <AlertCircle className={`w-5 h-5 ${getRiskColor(gateRisk)}`} />
-              </div>
-              <div className={`text-3xl font-bold mb-2 ${getRiskColor(gateRisk)}`}>{gateRisk.toFixed(0)}%</div>
-              <p className="text-gray-500 text-xs">
-                {gateRisk > 75 ? 'حرج' : gateRisk > 50 ? 'تحذير' : 'آمن'}
-              </p>
-            </CardContent>
-          </Card>
-
-          {/* Active Alerts */}
-          <Card className="rounded-2xl bg-gray-900/40 border-gray-800 backdrop-blur-xl hover:bg-gray-900/60 transition-all duration-300">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between mb-4">
-                <p className="text-gray-400 text-sm">التنبيهات النشطة</p>
-                <AlertCircle className="w-5 h-5 text-red-500" />
-              </div>
-              <div className="text-3xl font-bold mb-2">{activeAlerts}</div>
-              <p className="text-gray-500 text-xs">تحتاج إلى إجراء فوري</p>
-            </CardContent>
-          </Card>
+        {/* Predictive Intelligence & Recommendations */}
+        <div>
+          <h2 className="text-xl font-bold mb-4 text-gray-300 flex items-center gap-2">
+            <Brain className="w-5 h-5 text-blue-400" />
+            الذكاء التنبؤي والتوصيات
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {predictiveInsights.map((insight) => {
+              const Icon = insight.icon;
+              return (
+                <Card key={insight.id} className={`rounded-2xl bg-gradient-to-br ${insight.color} border-0 backdrop-blur-xl overflow-hidden group hover:shadow-lg transition-all duration-300`}>
+                  <CardContent className="pt-6">
+                    <div className="flex items-start justify-between mb-3">
+                      <Icon className="w-6 h-6 text-white/80" />
+                      <span className="text-xs font-bold bg-white/20 px-2 py-1 rounded-full text-white">
+                        {insight.confidence}% ثقة
+                      </span>
+                    </div>
+                    <h3 className="font-bold text-white mb-2">{insight.title}</h3>
+                    <p className="text-white/80 text-sm mb-4">{insight.description}</p>
+                    <Button className="w-full bg-white/20 hover:bg-white/30 text-white rounded-lg text-sm font-semibold transition-all duration-300">
+                      {insight.action}
+                    </Button>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
         </div>
 
-        {/* Middle Section - Stadium Heatmap & Crowd Flow */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-          {/* Stadium Heatmap */}
-          <Card className="lg:col-span-2 rounded-2xl bg-gray-900/40 border-gray-800 backdrop-blur-xl">
-            <CardHeader>
-              <CardTitle className="text-xl">خريطة الازدحام الحية</CardTitle>
-              <CardDescription className="text-gray-400 text-sm">Stadium Heatmap - توزيع الجماهير</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="aspect-video bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl flex items-center justify-center border border-gray-700 relative overflow-hidden">
-                {/* Animated Heatmap Background */}
-                <div className="absolute inset-0">
-                  <div className="absolute top-1/4 left-1/4 w-40 h-40 bg-green-500/20 rounded-full blur-3xl animate-pulse"></div>
-                  <div className="absolute top-1/3 right-1/4 w-48 h-48 bg-yellow-500/15 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
-                  <div className="absolute bottom-1/4 left-1/3 w-32 h-32 bg-red-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }}></div>
-                </div>
-                <div className="relative z-10 text-center">
-                  <p className="text-gray-400 text-sm">خريطة الازدحام الحية</p>
-                  <p className="text-gray-500 text-xs mt-2">Real-time Crowd Distribution</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* AI Recommendations */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold">التوصيات الذكية</h3>
-            <Card className="rounded-2xl bg-gradient-to-br from-blue-950/40 to-blue-900/20 border-blue-800/50 backdrop-blur-xl">
-              <CardContent className="pt-6">
-                <div className="flex items-start gap-4">
-                  <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center flex-shrink-0">
-                    <span className="text-blue-400 font-bold text-sm">1</span>
-                  </div>
-                  <div>
-                    <p className="font-semibold text-sm mb-1">فتح البوابة 4</p>
-                    <p className="text-gray-400 text-xs">تقليل الضغط 40%</p>
-                  </div>
-                </div>
+        {/* Top Section - Event Status Cards */}
+        <div>
+          <h2 className="text-xl font-bold mb-4 text-gray-300">حالة الحدث</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Total Attendance Card */}
+            <Card className={`rounded-2xl border backdrop-blur-xl ${getRiskBgColor(crowdDensity)}`}>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Users className="w-5 h-5" />
+                  إجمالي الحضور
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold mb-2">{Math.round(attendance).toLocaleString()}</p>
+                <p className="text-sm text-gray-400">من 60,000 سعة</p>
               </CardContent>
             </Card>
 
-            <Card className="rounded-2xl bg-gradient-to-br from-yellow-950/40 to-yellow-900/20 border-yellow-800/50 backdrop-blur-xl">
-              <CardContent className="pt-6">
-                <div className="flex items-start gap-4">
-                  <div className="w-10 h-10 rounded-full bg-yellow-500/20 flex items-center justify-center flex-shrink-0">
-                    <span className="text-yellow-400 font-bold text-sm">2</span>
-                  </div>
-                  <div>
-                    <p className="font-semibold text-sm mb-1">إعادة توجيه الجماهير</p>
-                    <p className="text-gray-400 text-xs">25% للبوابات الأخرى</p>
-                  </div>
-                </div>
+            {/* Crowd Density Card */}
+            <Card className={`rounded-2xl border backdrop-blur-xl ${getRiskBgColor(crowdDensity)}`}>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <MapPin className="w-5 h-5" />
+                  كثافة الجماهير
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className={`text-3xl font-bold mb-2 ${getRiskColor(crowdDensity)}`}>{Math.round(crowdDensity)}%</p>
+                <p className="text-sm text-gray-400">{getStatusText(crowdDensity)}</p>
               </CardContent>
             </Card>
 
-            <Card className="rounded-2xl bg-gradient-to-br from-green-950/40 to-green-900/20 border-green-800/50 backdrop-blur-xl">
-              <CardContent className="pt-6">
-                <div className="flex items-start gap-4">
-                  <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0">
-                    <span className="text-green-400 font-bold text-sm">3</span>
-                  </div>
-                  <div>
-                    <p className="font-semibold text-sm mb-1">تأخير نافذة الدخول</p>
-                    <p className="text-gray-400 text-xs">15 دقيقة إضافية</p>
-                  </div>
-                </div>
+            {/* Gate Risk Card */}
+            <Card className={`rounded-2xl border backdrop-blur-xl ${getRiskBgColor(gateRisk)}`}>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <AlertCircle className="w-5 h-5" />
+                  مخاطر البوابات
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className={`text-3xl font-bold mb-2 ${getRiskColor(gateRisk)}`}>{Math.round(gateRisk)}%</p>
+                <p className="text-sm text-gray-400">{getStatusText(gateRisk)}</p>
+              </CardContent>
+            </Card>
+
+            {/* Active Alerts Card */}
+            <Card className={`rounded-2xl border backdrop-blur-xl ${activeAlerts > 0 ? 'bg-red-500/10 border-red-500/30' : 'bg-green-500/10 border-green-500/30'}`}>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Zap className="w-5 h-5" />
+                  التنبيهات النشطة
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className={`text-3xl font-bold mb-2 ${activeAlerts > 0 ? 'text-red-400' : 'text-green-400'}`}>{activeAlerts}</p>
+                <p className="text-sm text-gray-400">{activeAlerts > 0 ? 'تحتاج اهتمام' : 'الوضع طبيعي'}</p>
               </CardContent>
             </Card>
           </div>
         </div>
 
-        {/* Bottom Section - Arrival Prediction & Crowd Flow */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Arrival Prediction */}
-          <Card className="rounded-2xl bg-gray-900/40 border-gray-800 backdrop-blur-xl">
+        {/* Middle Section - Stadium Heatmap & Distribution */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Crowd Density Heatmap */}
+          <Card className="rounded-2xl bg-gray-900/40 border-gray-800 backdrop-blur-xl lg:col-span-2">
             <CardHeader>
-              <CardTitle className="text-xl">توقع وصول الجماهير</CardTitle>
-              <CardDescription className="text-gray-400 text-sm">Fan Arrival Prediction - قبل المباراة</CardDescription>
+              <CardTitle className="flex items-center gap-2">
+                <MapPin className="w-5 h-5 text-cyan-400" />
+                خريطة الازدحام الحرارية
+              </CardTitle>
+              <CardDescription>توزيع الجماهير داخل الملعب</CardDescription>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <AreaChart data={arrivalPredictionData}>
-                  <defs>
-                    <linearGradient id="colorArrivals" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#0071e3" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="#0071e3" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#424245" />
-                  <XAxis dataKey="label" stroke="#8e8e93" fontSize={12} />
-                  <YAxis stroke="#8e8e93" />
-                  <Tooltip 
-                    contentStyle={{ backgroundColor: '#1c1c1e', border: '1px solid #424245', borderRadius: '8px' }}
-                    labelStyle={{ color: '#ffffff' }}
-                  />
-                  <Area type="monotone" dataKey="fans" stroke="#0071e3" fillOpacity={1} fill="url(#colorArrivals)" />
-                </AreaChart>
-              </ResponsiveContainer>
-              <div className="mt-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
-                <p className="text-yellow-400 text-xs font-semibold">Peak Arrival Window: T-45 (18,000 fans)</p>
+              <div className="h-64 bg-gradient-to-b from-gray-800 to-gray-900 rounded-xl p-4 flex items-center justify-center relative overflow-hidden">
+                {/* Heatmap Visualization */}
+                <div className="w-full h-full relative">
+                  {/* Stadium Shape */}
+                  <svg className="w-full h-full" viewBox="0 0 400 300">
+                    {/* Stadium outline */}
+                    <rect x="50" y="50" width="300" height="200" fill="none" stroke="#4b5563" strokeWidth="2" rx="20" />
+                    
+                    {/* Crowd density zones */}
+                    <circle cx="100" cy="100" r="35" fill="#ef4444" opacity="0.6" />
+                    <circle cx="300" cy="100" r="25" fill="#f59e0b" opacity="0.5" />
+                    <circle cx="200" cy="150" r="40" fill="#10b981" opacity="0.4" />
+                    <circle cx="100" cy="200" r="20" fill="#10b981" opacity="0.3" />
+                    <circle cx="300" cy="200" r="30" fill="#f59e0b" opacity="0.4" />
+                    
+                    {/* Gate labels */}
+                    <text x="80" y="280" fontSize="12" fill="#9ca3af">Gate 1</text>
+                    <text x="180" y="280" fontSize="12" fill="#9ca3af">Gate 3</text>
+                    <text x="280" y="280" fontSize="12" fill="#9ca3af">Gate 2</text>
+                  </svg>
+                </div>
+              </div>
+              <div className="mt-4 flex justify-center gap-6 text-sm">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                  <span className="text-gray-400">حرج (75%+)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                  <span className="text-gray-400">تحذير (50-75%)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                  <span className="text-gray-400">طبيعي (&lt;50%)</span>
+                </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Crowd Flow Stability */}
+          {/* Gate Distribution */}
           <Card className="rounded-2xl bg-gray-900/40 border-gray-800 backdrop-blur-xl">
             <CardHeader>
-              <CardTitle className="text-xl">تدفق الجماهير</CardTitle>
-              <CardDescription className="text-gray-400 text-sm">Crowd Flow - آخر 6 ساعات</CardDescription>
+              <CardTitle className="flex items-center gap-2">
+                <Zap className="w-5 h-5 text-emerald-400" />
+                توزيع البوابات
+              </CardTitle>
+              <CardDescription>نسبة التدفق لكل بوابة</CardDescription>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={crowdFlowData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#424245" />
-                  <XAxis dataKey="time" stroke="#8e8e93" fontSize={12} />
-                  <YAxis stroke="#8e8e93" />
-                  <Tooltip 
-                    contentStyle={{ backgroundColor: '#1c1c1e', border: '1px solid #424245', borderRadius: '8px' }}
-                    labelStyle={{ color: '#ffffff' }}
-                  />
-                  <Line type="monotone" dataKey="flow" stroke="#00d4ff" strokeWidth={3} dot={{ fill: '#00d4ff', r: 4 }} />
-                </LineChart>
+              <ResponsiveContainer width="100%" height={250}>
+                <PieChart>
+                  <Pie
+                    data={gateDistributionData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={90}
+                    paddingAngle={2}
+                    dataKey="value"
+                  >
+                    {gateDistributionData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                </PieChart>
               </ResponsiveContainer>
-              <div className="mt-4 p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
-                <p className="text-green-400 text-xs font-semibold">Status: Stable ✓</p>
+              <div className="mt-4 space-y-2">
+                {gateDistributionData.map((gate) => (
+                  <div key={gate.name} className="flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: gate.color }}></div>
+                      <span className="text-gray-400">{gate.name}</span>
+                    </div>
+                    <span className="font-semibold">{gate.value}%</span>
+                  </div>
+                ))}
               </div>
             </CardContent>
           </Card>
         </div>
+
+        {/* Arrival Prediction Chart */}
+        <Card className="rounded-2xl bg-gray-900/40 border-gray-800 backdrop-blur-xl">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Clock className="w-5 h-5 text-blue-400" />
+              توقع وصول الجماهير
+            </CardTitle>
+            <CardDescription>نافذة الذروة: T-45 (18,000 مشجع متوقع)</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <AreaChart data={arrivalPredictionData}>
+                <defs>
+                  <linearGradient id="colorFans" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8} />
+                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                <XAxis dataKey="label" stroke="#9ca3af" />
+                <YAxis stroke="#9ca3af" />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: '#1f2937',
+                    border: '1px solid #374151',
+                    borderRadius: '8px',
+                  }}
+                  labelStyle={{ color: '#e5e7eb' }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="fans"
+                  stroke="#3b82f6"
+                  fillOpacity={1}
+                  fill="url(#colorFans)"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        {/* Crowd Flow Chart */}
+        <Card className="rounded-2xl bg-gray-900/40 border-gray-800 backdrop-blur-xl">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-emerald-400" />
+              تدفق الجماهير
+            </CardTitle>
+            <CardDescription>معدل الدخول بالدقيقة - الحالة: مستقرة</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={crowdFlowData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                <XAxis dataKey="time" stroke="#9ca3af" />
+                <YAxis stroke="#9ca3af" />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: '#1f2937',
+                    border: '1px solid #374151',
+                    borderRadius: '8px',
+                  }}
+                  labelStyle={{ color: '#e5e7eb' }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="flow"
+                  stroke="#10b981"
+                  dot={{ fill: '#10b981', r: 4 }}
+                  activeDot={{ r: 6 }}
+                  strokeWidth={2}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        {/* Operational Recommendations */}
+        <Card className="rounded-2xl bg-gray-900/40 border-gray-800 backdrop-blur-xl">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Brain className="w-5 h-5 text-purple-400" />
+              التوصيات التشغيلية
+            </CardTitle>
+            <CardDescription>قرارات ذكية لتحسين الكفاءة</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30">
+                <div className="flex items-start justify-between mb-2">
+                  <h4 className="font-semibold text-red-300">فتح مسار إضافي في البوابة 2</h4>
+                  <span className="text-xs bg-red-500/20 px-2 py-1 rounded text-red-300">عاجل</span>
+                </div>
+                <p className="text-sm text-gray-400">البوابة 2 تعاني من ازدحام (92% استخدام). فتح مسار إضافي سيقلل وقت الانتظار من 12 دقيقة إلى 5 دقائق.</p>
+              </div>
+
+              <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/30">
+                <div className="flex items-start justify-between mb-2">
+                  <h4 className="font-semibold text-blue-300">إعادة توجيه 20% من الجماهير</h4>
+                  <span className="text-xs bg-blue-500/20 px-2 py-1 rounded text-blue-300">موصى به</span>
+                </div>
+                <p className="text-sm text-gray-400">البوابة 4 لديها سعة متاحة (45% استخدام). إعادة توجيه 20% من الجماهير سيوازن الحمل على جميع البوابات.</p>
+              </div>
+
+              <div className="p-4 rounded-xl bg-green-500/10 border border-green-500/30">
+                <div className="flex items-start justify-between mb-2">
+                  <h4 className="font-semibold text-green-300">تفعيل الممر الشمالي</h4>
+                  <span className="text-xs bg-green-500/20 px-2 py-1 rounded text-green-300">اختياري</span>
+                </div>
+                <p className="text-sm text-gray-400">الممر الشمالي جاهز لاستقبال 5000 مشجع إضافي. تفعيله سيزيد السعة الكلية بنسبة 8%.</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
