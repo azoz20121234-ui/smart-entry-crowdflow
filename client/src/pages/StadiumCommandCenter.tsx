@@ -144,9 +144,25 @@ export default function StadiumCommandCenter() {
 
       {/* Main Content */}
       <div className="container py-8 space-y-8">
+        {/* Narrative Introduction */}
+        <div className="p-6 rounded-2xl bg-gradient-to-r from-blue-900/30 to-cyan-900/30 border border-blue-500/30 backdrop-blur-xl">
+          <h2 className="text-2xl font-bold mb-3 text-blue-300">📊 حالة الملعب الحالية</h2>
+          <p className="text-gray-300 mb-4 leading-relaxed">
+            الملعب يستقبل حالياً <span className="font-bold text-cyan-400">45,000 مشجع</span> من أصل 60,000 سعة. معدل الدخول مستقر عند <span className="font-bold text-cyan-400">1,250 مشجع/دقيقة</span>. 
+            النظام يتنبأ بـ <span className="font-bold text-amber-400">ازدحام في البوابة 2</span> خلال 7 دقائق، مما قد يؤدي إلى تأخير الدخول بـ 5-10 دقائق إضافية. 
+            التوصية الحالية: <span className="font-bold text-emerald-400">فتح مسار إضافي وإعادة توجيه 20% من الجماهير للبوابة 4</span> لتقليل وقت الانتظار وتحسين رضا الجماهير.
+          </p>
+          <div className="flex flex-wrap gap-3">
+            <div className="px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 text-xs font-semibold">✓ تقليل الازدحام</div>
+            <div className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-semibold">✓ رفع رضا الجماهير</div>
+            <div className="px-3 py-1 rounded-full bg-purple-500/20 text-purple-300 text-xs font-semibold">✓ تحسين الأمن</div>
+            <div className="px-3 py-1 rounded-full bg-orange-500/20 text-orange-300 text-xs font-semibold">✓ تقليل وقت الدخول</div>
+          </div>
+        </div>
+
         {/* Top KPIs - Performance Metrics */}
         <div>
-          <h2 className="text-xl font-bold mb-4 text-gray-300">مؤشرات الأداء الحية</h2>
+          <h2 className="text-xl font-bold mb-4 text-gray-300">📈 مؤشرات الأداء الحية</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Total Attendance */}
             <Card className="rounded-2xl bg-gradient-to-br from-blue-900/20 to-blue-800/10 border-blue-500/30 backdrop-blur-xl">
@@ -478,39 +494,114 @@ export default function StadiumCommandCenter() {
           </CardContent>
         </Card>
 
-        {/* Operational Recommendations */}
+        {/* Operational Recommendations with Narrative */}
         <Card className="rounded-2xl bg-gray-900/40 border-gray-800 backdrop-blur-xl">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Brain className="w-5 h-5 text-purple-400" />
-              التوصيات التشغيلية
+              التوصيات التشغيلية الذكية
             </CardTitle>
-            <CardDescription>قرارات ذكية لتحسين الكفاءة</CardDescription>
+            <CardDescription>قرارات مدعومة بالبيانات والتنبؤات - مع شرح المعنى والأثر</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30">
-                <div className="flex items-start justify-between mb-2">
-                  <h4 className="font-semibold text-red-300">فتح مسار إضافي في البوابة 2</h4>
-                  <span className="text-xs bg-red-500/20 px-2 py-1 rounded text-red-300">عاجل</span>
+            <div className="space-y-4">
+              {/* Recommendation 1 */}
+              <div className="p-5 rounded-xl bg-red-500/10 border border-red-500/30 hover:border-red-500/50 transition-all duration-300">
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <h4 className="font-bold text-red-300 text-lg">🚨 فتح مسار إضافي في البوابة 2</h4>
+                    <span className="text-xs bg-red-500/20 px-2 py-1 rounded text-red-300 inline-block mt-2">أولوية عالية - تنفيذ فوري</span>
+                  </div>
                 </div>
-                <p className="text-sm text-gray-400">البوابة 2 تعاني من ازدحام (92% استخدام). فتح مسار إضافي سيقلل وقت الانتظار من 12 دقيقة إلى 5 دقائق.</p>
+                <p className="text-sm text-gray-300 mb-3 font-semibold">🔍 المشكلة:</p>
+                <p className="text-sm text-gray-400 mb-4">البوابة 2 تعاني من ازدحام شديد (92% استخدام). معدل الدخول الحالي 850 مشجع/دقيقة، لكن السعة القصوى 1200 مشجع/دقيقة فقط. هذا يعني تأخير 5-10 دقائق إضافية.</p>
+                <p className="text-sm text-gray-300 mb-3 font-semibold">✅ القرار:</p>
+                <p className="text-sm text-gray-400 mb-4">فتح مسار إضافي (مسار 3) سيزيد السعة من 1200 إلى 1800 مشجع/دقيقة.</p>
+                <p className="text-sm text-gray-300 mb-3 font-semibold">📊 الأثر المتوقع:</p>
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div className="bg-red-500/20 p-2 rounded">
+                    <span className="text-red-300 font-semibold">وقت الانتظار</span>
+                    <p className="text-gray-400">من 12 دقيقة → 5 دقائق</p>
+                  </div>
+                  <div className="bg-emerald-500/20 p-2 rounded">
+                    <span className="text-emerald-300 font-semibold">رضا الجماهير</span>
+                    <p className="text-gray-400">+35% في الرضا</p>
+                  </div>
+                  <div className="bg-blue-500/20 p-2 rounded">
+                    <span className="text-blue-300 font-semibold">السلامة</span>
+                    <p className="text-gray-400">تقليل الضغط البشري</p>
+                  </div>
+                  <div className="bg-purple-500/20 p-2 rounded">
+                    <span className="text-purple-300 font-semibold">الإيرادات</span>
+                    <p className="text-gray-400">+12% في الإيرادات</p>
+                  </div>
+                </div>
               </div>
 
-              <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/30">
-                <div className="flex items-start justify-between mb-2">
-                  <h4 className="font-semibold text-blue-300">إعادة توجيه 20% من الجماهير</h4>
-                  <span className="text-xs bg-blue-500/20 px-2 py-1 rounded text-blue-300">موصى به</span>
+              {/* Recommendation 2 */}
+              <div className="p-5 rounded-xl bg-blue-500/10 border border-blue-500/30 hover:border-blue-500/50 transition-all duration-300">
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <h4 className="font-bold text-blue-300 text-lg">🔄 إعادة توجيه 20% من الجماهير للبوابة 4</h4>
+                    <span className="text-xs bg-blue-500/20 px-2 py-1 rounded text-blue-300 inline-block mt-2">موصى به - تنفيذ خلال 3 دقائق</span>
+                  </div>
                 </div>
-                <p className="text-sm text-gray-400">البوابة 4 لديها سعة متاحة (45% استخدام). إعادة توجيه 20% من الجماهير سيوازن الحمل على جميع البوابات.</p>
+                <p className="text-sm text-gray-300 mb-3 font-semibold">🔍 المشكلة:</p>
+                <p className="text-sm text-gray-400 mb-4">توزيع غير متوازن: البوابة 2 (92% استخدام) بينما البوابة 4 (45% استخدام). هذا يخلق اختناقات غير ضرورية.</p>
+                <p className="text-sm text-gray-300 mb-3 font-semibold">✅ القرار:</p>
+                <p className="text-sm text-gray-400 mb-4">إعادة توجيه 20% من الجماهير المتجهة للبوابة 2 إلى البوابة 4 (التي لديها سعة متاحة).</p>
+                <p className="text-sm text-gray-300 mb-3 font-semibold">📊 الأثر المتوقع:</p>
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div className="bg-blue-500/20 p-2 rounded">
+                    <span className="text-blue-300 font-semibold">توازن الحمل</span>
+                    <p className="text-gray-400">جميع البوابات 60-70%</p>
+                  </div>
+                  <div className="bg-emerald-500/20 p-2 rounded">
+                    <span className="text-emerald-300 font-semibold">كفاءة النظام</span>
+                    <p className="text-gray-400">+18% في الكفاءة</p>
+                  </div>
+                  <div className="bg-purple-500/20 p-2 rounded">
+                    <span className="text-purple-300 font-semibold">تجربة المشجع</span>
+                    <p className="text-gray-400">دخول أسرع وأسهل</p>
+                  </div>
+                  <div className="bg-orange-500/20 p-2 rounded">
+                    <span className="text-orange-300 font-semibold">التنبؤ</span>
+                    <p className="text-gray-400">دقة 88%</p>
+                  </div>
+                </div>
               </div>
 
-              <div className="p-4 rounded-xl bg-green-500/10 border border-green-500/30">
-                <div className="flex items-start justify-between mb-2">
-                  <h4 className="font-semibold text-green-300">تفعيل الممر الشمالي</h4>
-                  <span className="text-xs bg-green-500/20 px-2 py-1 rounded text-green-300">اختياري</span>
+              {/* Recommendation 3 */}
+              <div className="p-5 rounded-xl bg-green-500/10 border border-green-500/30 hover:border-green-500/50 transition-all duration-300">
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <h4 className="font-bold text-green-300 text-lg">⚡ تفعيل الممر الشمالي الإضافي</h4>
+                    <span className="text-xs bg-green-500/20 px-2 py-1 rounded text-green-300 inline-block mt-2">اختياري - للحالات الطارئة</span>
+                  </div>
                 </div>
-                <p className="text-sm text-gray-400">الممر الشمالي جاهز لاستقبال 5000 مشجع إضافي. تفعيله سيزيد السعة الكلية بنسبة 8%.</p>
+                <p className="text-sm text-gray-300 mb-3 font-semibold">🔍 المشكلة:</p>
+                <p className="text-sm text-gray-400 mb-4">إذا استمر معدل الدخول بـ 1,250 مشجع/دقيقة، سيمتلئ الملعب خلال 12 دقيقة. الممر الشمالي متاح كحل إضافي.</p>
+                <p className="text-sm text-gray-300 mb-3 font-semibold">✅ القرار:</p>
+                <p className="text-sm text-gray-400 mb-4">تفعيل الممر الشمالي لاستقبال 5,000 مشجع إضافي، مما يزيد السعة الكلية بنسبة 8%.</p>
+                <p className="text-sm text-gray-300 mb-3 font-semibold">📊 الأثر المتوقع:</p>
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div className="bg-green-500/20 p-2 rounded">
+                    <span className="text-green-300 font-semibold">السعة الإضافية</span>
+                    <p className="text-gray-400">+5,000 مشجع</p>
+                  </div>
+                  <div className="bg-emerald-500/20 p-2 rounded">
+                    <span className="text-emerald-300 font-semibold">الأمان</span>
+                    <p className="text-gray-400">تقليل الضغط</p>
+                  </div>
+                  <div className="bg-blue-500/20 p-2 rounded">
+                    <span className="text-blue-300 font-semibold">وقت التنفيذ</span>
+                    <p className="text-gray-400">2-3 دقائق</p>
+                  </div>
+                  <div className="bg-purple-500/20 p-2 rounded">
+                    <span className="text-purple-300 font-semibold">الجاهزية</span>
+                    <p className="text-gray-400">100% جاهز</p>
+                  </div>
+                </div>
               </div>
             </div>
           </CardContent>
