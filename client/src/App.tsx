@@ -12,18 +12,26 @@ import FanInterface from "./pages/FanInterface";
 import OperatorDashboard from "./pages/OperatorDashboard";
 import OperatorDashboardApple from "./pages/OperatorDashboardApple";
 import ExecutiveDashboardApple from "./pages/ExecutiveDashboardApple";
+import StadiumCommandCenter from "./pages/StadiumCommandCenter";
+import FanExperienceApple from "./pages/FanExperienceApple";
+import ExecutiveIntelligence from "./pages/ExecutiveIntelligence";
+import CrowdOSHub from "./pages/CrowdOSHub";
 import ExecutiveOpsPanel from "./pages/ExecutiveOpsPanel";
 
 
 function AppRoutes() {
   return (
     <Switch>
-      <Route path="/" component={Home} />
+      <Route path="/" component={CrowdOSHub} />
+      <Route path="/home" component={Home} />
       <Route path="/admin" component={AdminDashboard} />
       <Route path="/fan" component={FanInterface} />
       <Route path="/operator" component={OperatorDashboard} />
       <Route path="/operator-apple" component={OperatorDashboardApple} />
       <Route path="/executive-apple" component={ExecutiveDashboardApple} />
+      <Route path="/stadium-command" component={StadiumCommandCenter} />
+      <Route path="/fan-apple" component={FanExperienceApple} />
+      <Route path="/executive-intelligence" component={ExecutiveIntelligence} />
       <Route path="/executive" component={ExecutiveOpsPanel} />
       <Route path="/404" component={NotFound} />
       {/* Final fallback route */}
